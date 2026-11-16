@@ -12,6 +12,7 @@ const DEFAULTS = {
 };
 
 const $ = (id) => document.getElementById(id);
+$("ver").textContent = `v${chrome.runtime.getManifest().version}`;
 const save = (obj) => chrome.storage.local.set(obj);
 
 function renderMode(mode) {

@@ -4,6 +4,8 @@
 //  - 유튜브 보조 실행: 매니페스트 자동 실행이 안 붙는 환경을 위해 직접 스크립트를 넣음
 // 콘텐츠 스크립트가 직접 fetch하면 사이트의 CORS 정책에 막힐 수 있어서 여기서 대신 보냅니다.
 
+console.log(`[쉿스포] 백그라운드 v${chrome.runtime.getManifest().version} 시작`);
+
 const DEFAULTS = { serverUrl: "http://localhost:8787", ytApiKey: "" };
 const ytTimeCache = new Map(); // 댓글 번호 → ISO (한 번 물어본 건 다시 안 물어봄)
 
@@ -66,6 +68,7 @@ const INJECT_URL = /^https:\/\/(www|m)\.youtube\.com\//;
 
 chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
   if (info.status !== "complete" || !INJECT_URL.test(tab.url || "")) return;
+  console.log("[쉿스포] 유튜브 탭 감지:", tabId, tab.url);
   inject(tabId);
 });
 
@@ -75,7 +78,7 @@ async function inject(tabId) {
       target: { tabId },
       func: () => !!window.__shhpoilLoaded,
     });
-    if (loaded) return;
+    if (loaded) return console.log("[쉿스포] 이미 실행 중:", tabId);
     await chrome.scripting.insertCSS({ target: { tabId }, files: ["content.css"] });
     await chrome.scripting.executeScript({ target: { tabId }, files: ["sites.js", "content.js"] });
     console.log("[쉿스포] 유튜브 탭에 직접 실행했어요:", tabId);

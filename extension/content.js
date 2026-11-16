@@ -10,7 +10,9 @@
   if (window.__shhpoilLoaded) return;
   window.__shhpoilLoaded = true;
 
+  const VERSION = chrome.runtime.getManifest().version;
   const site = (window.BDK_SITES || []).find((s) => s.match(location));
+  console.log(`[쉿스포] v${VERSION} 실행됨 · 사이트: ${site?.name || "해당 없음"}`);
   if (!site) return;
 
   const DEFAULTS = {
@@ -365,7 +367,7 @@
       if (s.status === "hide") hidden++;
       else if (s.status === "blur") blurred++;
     }
-    hud.replaceChildren(h("b", {}, "🤫 쉿스포"));
+    hud.replaceChildren(h("b", {}, "🤫 쉿스포"), ` v${VERSION}`);
     if (!settings.enabled) return hud.append(" 꺼짐");
     hud.append(
       ` ${settings.mode === "keyword" ? "키워드 모드" : "판정 모드"} · ${settings.watchedEpisode}화까지 봄`,

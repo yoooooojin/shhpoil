@@ -1,6 +1,7 @@
 // 바깥과 통신하는 부분.
 //  - judge: 판단 엔진(가짜 서버 → 현장에선 팀원분의 Zoro 서버)
 //  - ytCommentTimes: YouTube Data API로 댓글의 정확한 작성 시각 조회
+//  - 유튜브 보조 실행: 매니페스트 자동 실행이 안 붙는 환경을 위해 직접 스크립트를 넣음
 // 콘텐츠 스크립트가 직접 fetch하면 사이트의 CORS 정책에 막힐 수 있어서 여기서 대신 보냅니다.
 
 const DEFAULTS = { serverUrl: "http://localhost:8787", ytApiKey: "" };
@@ -56,4 +57,30 @@ async function handleYtTimes(msg) {
     }
   }
   return { times };
+}
+
+// ---------------------------------------------------------------- 유튜브 보조 실행
+// 일부 환경에서 매니페스트의 content_scripts가 유튜브에 붙지 않아서, 페이지가 열리면 직접 넣어 줌.
+// 이미 붙어 있으면 content.js 맨 앞의 중복 방지 코드가 알아서 무시함.
+const INJECT_URL = /^https:\/\/(www|m)\.youtube\.com\//;
+
+chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
+  if (info.status !== "complete" || !INJECT_URL.test(tab.url || "")) return;
+  inject(tabId);
+});
+
+async function inject(tabId) {
+  try {
+    const [{ result: loaded } = {}] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => !!window.__shhpoilLoaded,
+    });
+    if (loaded) return;
+    await chrome.scripting.insertCSS({ target: { tabId }, files: ["content.css"] });
+    await chrome.scripting.executeScript({ target: { tabId }, files: ["sites.js", "content.js"] });
+    console.log("[쉿스포] 유튜브 탭에 직접 실행했어요:", tabId);
+  } catch (e) {
+    // 여기 찍히는 이유가 "유튜브에서 안 붙는" 진짜 원인 (예: 정책으로 차단)
+    console.warn("[쉿스포] 유튜브 탭 실행 실패:", e?.message || e);
+  }
 }

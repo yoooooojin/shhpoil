@@ -8,6 +8,7 @@ const DEFAULTS = {
   serverUrl: "http://localhost:8787",
   ytApiKey: "",
   typeOffsets: {},
+  overrides: {},
 };
 
 const $ = (id) => document.getElementById(id);
@@ -18,11 +19,12 @@ function renderMode(mode) {
   $("kwBox").style.display = mode === "keyword" ? "block" : "none";
 }
 
-function renderOffsets(offsets) {
+function renderOffsets(offsets, overrides) {
   const entries = Object.entries(offsets || {}).filter(([, v]) => v);
-  $("offsets").textContent = entries.length
-    ? entries.map(([k, v]) => `${k} ${v > 0 ? "+" : ""}${Math.round(v * 100)}%p`).join(" · ")
-    : "아직 없음";
+  const parts = entries.map(([k, v]) => `${k} ${v > 0 ? "+" : ""}${Math.round(v * 100)}%p`);
+  const n = Object.keys(overrides || {}).length;
+  if (n) parts.push(`직접 판정한 댓글 ${n}개`);
+  $("offsets").textContent = parts.length ? parts.join(" · ") : "아직 없음";
 }
 
 async function checkHealth(url) {
@@ -45,7 +47,7 @@ chrome.storage.local.get(DEFAULTS, (s) => {
   $("serverUrl").value = s.serverUrl;
   $("ytApiKey").value = s.ytApiKey;
   renderMode(s.mode);
-  renderOffsets(s.typeOffsets);
+  renderOffsets(s.typeOffsets, s.overrides);
   checkHealth(s.serverUrl);
 });
 
@@ -66,6 +68,12 @@ document.querySelectorAll(".seg button").forEach((b) =>
   })
 );
 $("resetLearning").addEventListener("click", () => {
-  save({ typeOffsets: {} });
-  renderOffsets({});
+  save({ typeOffsets: {}, overrides: {} });
+  renderOffsets({}, {});
+});
+
+// 팝업이 열려 있는 동안 학습 기록이 바뀌면 바로 표시
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== "local" || !(changes.typeOffsets || changes.overrides)) return;
+  chrome.storage.local.get(DEFAULTS, (s) => renderOffsets(s.typeOffsets, s.overrides));
 });

@@ -6,6 +6,10 @@
 //  [학습] "스포 아님 / 스포였음" 반응으로 글 종류별 기준을 조정
 
 (() => {
+  // 매니페스트 자동 실행 + background의 보조 실행이 겹쳐도 한 번만 동작
+  if (window.__shhpoilLoaded) return;
+  window.__shhpoilLoaded = true;
+
   const site = (window.BDK_SITES || []).find((s) => s.match(location));
   if (!site) return;
 
@@ -17,7 +21,10 @@
     sensitivity: 0.5, // 0: 확실한 스포만 ~ 1: 조금이라도 의심되면
     keywords: "흑백요리사,최강록,우승,탈락",
     typeOffsets: {}, // 학습 결과: 글 종류별 기준 보정값
+    overrides: {}, // 사용자가 직접 판정한 댓글: { 댓글id: "show" | "hide" } (새로고침해도 유지)
   };
+  // 저장만 바뀌고 화면 전체를 다시 판단할 필요는 없는 설정
+  const LEARNING_KEYS = ["typeOffsets", "overrides"];
 
   let settings = { ...DEFAULTS };
   const state = new Map(); // id → { el, text, postedAt, result, status }
@@ -190,7 +197,8 @@
   function decide(id) {
     const s = state.get(id);
     // 사용자가 직접 "스포 아님 / 스포였음"을 누른 댓글은 그 결정을 그대로 따름
-    if (s.override) return setStatus(id, s.override);
+    const override = settings.overrides?.[id];
+    if (override) return setStatus(id, override);
     const r = s.result;
     const offset = settings.typeOffsets[r.type] || 0;
     const T = Math.min(0.95, Math.max(0.05, baseThreshold() + offset));
@@ -308,30 +316,36 @@
       s.el.classList.add("bdk-revealed");
       return;
     }
-    // 사용자의 직접 결정은 이 댓글에 고정 (다른 댓글 재판단 때 덮어쓰지 않음)
-    s.override = act === "notspoiler" ? "show" : "hide";
+    // 사용자의 직접 결정은 이 댓글에 고정하고 저장 (회차 변경·새로고침에도 유지)
+    const decision = act === "notspoiler" ? "show" : "hide";
+    settings.overrides = { ...(settings.overrides || {}), [id]: decision };
     s.revealed = false;
-    setStatus(id, s.override);
+    setStatus(id, decision);
 
     const type = s.result?.type;
     if (type) {
       const cur = settings.typeOffsets[type] || 0;
       // 잘못 가렸다 → 이 종류는 기준을 올림 / 놓쳤다 → 기준을 내림
       const next = act === "notspoiler" ? cur + 0.05 : cur - 0.05;
-      settings.typeOffsets[type] = Math.max(
-        -0.3,
-        Math.min(0.3, Math.round(next * 100) / 100),
-      );
+      settings.typeOffsets = {
+        ...settings.typeOffsets,
+        [type]: Math.max(-0.3, Math.min(0.3, Math.round(next * 100) / 100)),
+      };
       toast(
         `"${type}" 기준을 ${act === "notspoiler" ? "느슨하게" : "엄격하게"} 조정했어요 (${settings.typeOffsets[type] > 0 ? "+" : ""}${Math.round(settings.typeOffsets[type] * 100)}%p)`,
       );
-      try {
-        await chrome.storage.local.set({ typeOffsets: settings.typeOffsets });
-      } catch (e) {
-        // 확장을 새로고침한 뒤 페이지를 새로고침하지 않으면 여기서 실패함
-        toast("확장이 새로고침됐어요. 이 페이지도 새로고침해 주세요.");
-        console.warn("[쉿스포] 학습 저장 실패:", e);
-      }
+    } else {
+      toast(decision === "show" ? "이 댓글은 계속 보여줄게요" : "이 댓글은 계속 가릴게요");
+    }
+    try {
+      await chrome.storage.local.set({
+        typeOffsets: settings.typeOffsets,
+        overrides: settings.overrides,
+      });
+    } catch (e) {
+      // 확장을 새로고침한 뒤 페이지를 새로고침하지 않으면 여기서 실패함
+      toast("확장이 새로고침됐어요. 이 페이지도 새로고침해 주세요.");
+      console.warn("[쉿스포] 학습 저장 실패:", e);
     }
     // 같은 종류의 다른 글들도 새 기준으로 다시 결정
     if (type)
@@ -397,18 +411,12 @@
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
-    for (const [k, v] of Object.entries(changes)) settings[k] = v.newValue;
-    const onlyLearning = Object.keys(changes).every((k) => k === "typeOffsets");
+    for (const [k, v] of Object.entries(changes)) settings[k] = v.newValue ?? DEFAULTS[k];
+    const onlyLearning = Object.keys(changes).every((k) => LEARNING_KEYS.includes(k));
+    // 팝업의 "학습 초기화" → 직접 누른 결정이 비워짐
     const learningReset =
-      changes.typeOffsets &&
-      !Object.keys(changes.typeOffsets.newValue || {}).length;
-    if (learningReset) {
-      // 팝업의 "학습 초기화" → 직접 누른 결정도 함께 지움
-      for (const s of state.values()) {
-        s.override = null;
-        s.revealed = false;
-      }
-    }
+      changes.overrides && !Object.keys(changes.overrides.newValue || {}).length;
+    if (learningReset) for (const s of state.values()) s.revealed = false;
     if (!onlyLearning || learningReset) rejudgeAll();
   });
 

@@ -1,5 +1,5 @@
 """
-본데까지 - 가짜 판정 서버 (Zoro 자리 표시용)
+쉿스포(Shhpoil) - 가짜 판정 서버 (Zoro 자리 표시용)
 
 - API 약속(/judge, /judge?reason=true)과 같은 형식으로 응답합니다.
 - 판정은 단순 규칙(키워드)으로 흉내만 냅니다. 팀원분의 진짜 판단 엔진이 준비되면
@@ -24,18 +24,18 @@ KST = timezone(timedelta(hours=9))
 DEMO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "demo-page")
 
 # ---------------------------------------------------------------------------
-# 작품 정보 (TODO: 실제 공개 일정 확인 후 수정)
-# 흑백요리사2: 2025-12-16 17:00 첫 공개, 매주 화요일 17:00, 13회가 최종회(2026-01-13).
-# 주차별로 몇 화씩 공개됐는지는 확인이 필요해서 아래는 임시 값입니다.
+# 작품 정보: 방영 "당시"의 공개 일정
+# 흑백요리사2: 매주 화요일 17:00 넷플릭스 공개, 기사로 확인한 회차 구간.
+# (4회가 12/23, 8~10회가 12/30, 11~12회가 1/6, 13회가 1/13 공개 → 1~3회와 4~7회 구간은 이를 근거로 추정)
 # ---------------------------------------------------------------------------
 SHOWS = {
     "흑백요리사2": {
         "drops": [  # (공개 시각, 이 시점까지 공개된 마지막 회차)
-            (datetime(2025, 12, 16, 17, 0, tzinfo=KST), 3),
-            (datetime(2025, 12, 23, 17, 0, tzinfo=KST), 6),
-            (datetime(2025, 12, 30, 17, 0, tzinfo=KST), 9),
-            (datetime(2026, 1, 6, 17, 0, tzinfo=KST), 11),
-            (datetime(2026, 1, 13, 17, 0, tzinfo=KST), 13),
+            (datetime(2025, 12, 16, 17, 0, tzinfo=KST), 3),   # 1~3회
+            (datetime(2025, 12, 23, 17, 0, tzinfo=KST), 7),   # 4~7회
+            (datetime(2025, 12, 30, 17, 0, tzinfo=KST), 10),  # 8~10회
+            (datetime(2026, 1, 6, 17, 0, tzinfo=KST), 12),    # 11~12회
+            (datetime(2026, 1, 13, 17, 0, tzinfo=KST), 13),   # 13회 (최종회)
         ],
         # 스포 기억장 자리 표시용 예시 사건 (진짜 기억장은 팀원분 엔진이 커뮤니티에서 쌓음)
         "events": [
@@ -193,5 +193,5 @@ class Handler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8787
-    print(f"본데까지 가짜 서버: http://localhost:{port}  (시연 페이지: http://localhost:{port}/demo/)")
+    print(f"쉿스포 가짜 서버: http://localhost:{port}  (시연 페이지: http://localhost:{port}/demo/)")
     ThreadingHTTPServer(("0.0.0.0", port), Handler).serve_forever()

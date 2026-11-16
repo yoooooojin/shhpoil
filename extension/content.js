@@ -1,4 +1,4 @@
-// 본데까지 - 사용자님 파트: 관찰 · 행동 · 사용자 반응 학습 에이전트
+// 쉿스포(Shhpoil) - 사용자님 파트: 관찰 · 행동 · 사용자 반응 학습 에이전트
 //
 //  [관찰] 화면의 글을 모으고, 화면에 보이는 것부터 판정 요청 (스크롤로 새 글이 오면 추가)
 //  [판단] 판단 엔진(지금은 가짜 서버, 현장에선 Zoro)에 묻기
@@ -93,7 +93,7 @@
       if (!res?.ok) {
         // 실패하면 열어 둠 (화면을 막아버리지 않기)
         ids.forEach((id) => setStatus(id, "error"));
-        console.warn("[본데까지] 판단 엔진 연결 실패:", res?.error);
+        console.warn("[쉿스포] 판단 엔진 연결 실패:", res?.error);
       } else {
         stats.lastMs = res.ms;
         for (const r of res.data.results) {
@@ -243,9 +243,9 @@
       else if (s.status === "blur") blurred++;
     }
     hud.innerHTML = settings.enabled
-      ? `<b>본데까지</b> ${settings.mode === "keyword" ? "키워드 모드" : "판정 모드"} · ${settings.watchedEpisode}화까지 봄
+      ? `<b>🤫 쉿스포</b> ${settings.mode === "keyword" ? "키워드 모드" : "판정 모드"} · ${settings.watchedEpisode}화까지 봄
          <br>가림 ${hidden} · 의심 ${blurred} · 추론 ${stats.reasoned}${stats.lastMs ? ` · 응답 ${stats.lastMs}ms` : ""}`
-      : `<b>본데까지</b> 꺼짐`;
+      : `<b>🤫 쉿스포</b> 꺼짐`;
   }
 
   let toastTimer;

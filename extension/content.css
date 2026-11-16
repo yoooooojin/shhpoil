@@ -1,11 +1,18 @@
 .bdk-item { position: relative; transition: filter .25s, opacity .25s; }
 
 /* 판정 기다리는 동안은 살짝 흐리게 (스포가 잠깐이라도 보이지 않게) */
-.bdk-pending > :not(.bdk-badge) { filter: blur(4px); }
+/* 흐릴 대상: 사이트가 본문을 지정했으면(.bdk-target) 본문만, 아니면 배지를 뺀 자식 전체 */
+.bdk-pending:not(.bdk-has-target) > :not(.bdk-badge),
+.bdk-pending.bdk-has-target .bdk-target { filter: blur(4px); }
 
-.bdk-hide > :not(.bdk-badge) { filter: blur(9px); user-select: none; pointer-events: none; }
-.bdk-blur > :not(.bdk-badge) { filter: blur(4px); opacity: .75; user-select: none; pointer-events: none; }
-.bdk-revealed > :not(.bdk-badge) { filter: none; opacity: 1; }
+.bdk-hide:not(.bdk-has-target) > :not(.bdk-badge),
+.bdk-hide.bdk-has-target .bdk-target { filter: blur(9px); user-select: none; pointer-events: none; }
+
+.bdk-blur:not(.bdk-has-target) > :not(.bdk-badge),
+.bdk-blur.bdk-has-target .bdk-target { filter: blur(4px); opacity: .75; user-select: none; pointer-events: none; }
+
+.bdk-revealed:not(.bdk-has-target) > :not(.bdk-badge),
+.bdk-revealed.bdk-has-target .bdk-target { filter: none; opacity: 1; }
 
 .bdk-badge {
   display: flex; gap: 6px; align-items: center; flex-wrap: wrap;

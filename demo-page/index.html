@@ -3,62 +3,101 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>예능 잡담 - 시연용 커뮤니티</title>
+<title>시연용 영상 페이지</title>
 <style>
-  :root { --bg:#f4f4f2; --card:#fff; --line:#e3e3df; --ink:#222; --sub:#888; --accent:#3a5bd9; }
+  :root { --bg:#fff; --ink:#0f0f0f; --sub:#606060; --line:#e5e5e5; --chip:#f2f2f2; }
   * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.6 -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
-  header { background:#2b2b2b; color:#fff; padding:12px 16px; font-weight:700; }
-  header small { font-weight:400; color:#bbb; margin-left:8px; }
-  main { max-width:760px; margin:16px auto; padding:0 16px; }
-  .post { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:16px; margin-bottom:16px; }
-  .post h2 { font-size:18px; margin:0 0 4px; }
-  .meta { color:var(--sub); font-size:13px; }
-  .body { margin:12px 0; }
-  .comments { border-top:1px solid var(--line); margin-top:12px; }
-  .comment { padding:10px 0; border-bottom:1px solid var(--line); }
-  .comment:last-child { border-bottom:0; }
-  .comment .nick { font-weight:600; font-size:13px; margin-right:6px; }
-  .comment time { color:var(--sub); font-size:12px; }
-  .comment .text { margin-top:2px; }
-  .note { font-size:12px; color:var(--sub); text-align:center; margin:24px 0; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.5 Roboto, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+  .top { height:56px; display:flex; align-items:center; gap:10px; padding:0 16px; border-bottom:1px solid var(--line); }
+  .logo { width:30px; height:20px; border-radius:5px; background:#e33; position:relative; }
+  .logo::after { content:""; position:absolute; left:12px; top:5px; border:5px solid transparent; border-left:8px solid #fff; }
+  .top b { font-size:16px; }
+  .top small { color:var(--sub); margin-left:6px; }
+  .wrap { display:grid; grid-template-columns: minmax(0,1fr) 340px; gap:24px; max-width:1280px; margin:20px auto; padding:0 16px; }
+  @media (max-width: 900px) { .wrap { grid-template-columns: 1fr; } }
+  .player { aspect-ratio:16/9; background:#111; border-radius:12px; display:grid; place-items:center; color:#888; font-size:13px; }
+  h1 { font-size:20px; margin:12px 0 6px; }
+  .chan { display:flex; align-items:center; gap:10px; color:var(--sub); font-size:13px; }
+  .chan .av { width:36px; height:36px; }
+  .desc { background:var(--chip); border-radius:12px; padding:10px 12px; margin:12px 0; font-size:13px; }
+  .count { font-size:18px; font-weight:700; margin:20px 0 16px; }
+  .comment { display:flex; gap:14px; margin-bottom:18px; }
+  .av { flex:none; width:40px; height:40px; border-radius:50%; background:hsl(var(--h) 55% 70%); display:grid; place-items:center; color:#fff; font-weight:700; }
+  .main { min-width:0; flex:1; }
+  .head { font-size:13px; }
+  .head .nick { font-weight:600; margin-right:6px; }
+  .head .time { color:var(--sub); text-decoration:none; }
+  .text { margin:2px 0 4px; white-space:pre-wrap; }
+  .actions { color:var(--sub); font-size:12px; display:flex; gap:16px; }
+  .side h3 { font-size:14px; margin:0 0 10px; color:var(--sub); font-weight:500; }
+  .vid { display:flex; gap:8px; margin-bottom:10px; cursor:pointer; border-radius:8px; padding:4px; }
+  .vid:hover, .vid.on { background:var(--chip); }
+  .thumb { flex:none; width:150px; aspect-ratio:16/9; border-radius:8px; background:linear-gradient(135deg,#222,#555); color:#ddd; font-size:11px; display:grid; place-items:center; text-align:center; padding:6px; }
+  .vid .t { font-size:13px; font-weight:600; line-height:1.35; }
+  .vid .m { font-size:12px; color:var(--sub); margin-top:2px; }
+  .note { font-size:12px; color:var(--sub); margin-top:24px; }
 </style>
 </head>
 <body>
-<header>예능 잡담 <small>시연용 가상 커뮤니티 · 모든 닉네임과 글은 예시입니다</small></header>
-<main id="feed"></main>
-<p class="note">이 페이지는 쉿스포(Shhpoil) 확장 시연용입니다. 글은 data.js에서 바꿀 수 있어요.</p>
+<div class="top"><div class="logo"></div><b>예능 클립</b><small>쉿스포(Shhpoil) 시연용 가상 영상 페이지 · 채널·닉네임·댓글은 예시입니다</small></div>
+
+<div class="wrap">
+  <section>
+    <div class="player">영상 자리 (시연용)</div>
+    <h1 data-bdk-title id="title"></h1>
+    <div class="chan"><div class="av" style="--h:200">채</div><span id="chan"></span></div>
+    <div class="desc" id="desc"></div>
+    <div class="count" id="count"></div>
+    <div id="comments"></div>
+    <p class="note">댓글 작성 시각은 화면엔 "○개월 전"으로 보이고, 정확한 시각은 실제 유튜브처럼 API로 받은 값을 data-published에 넣어 두었어요.</p>
+  </section>
+  <aside class="side">
+    <h3>다음 동영상</h3>
+    <div id="list"></div>
+  </aside>
+</div>
 
 <script src="data.js"></script>
 <script>
-  // 확장이 읽는 구조: [data-bdk-comment] 요소 안의 .text(본문)와 time[datetime](게시 시각)
-  const feed = document.getElementById("feed");
-  const fmt = (iso) => {
-    const d = new Date(iso);
-    const p = (n) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
-  };
   const esc = (s) => s.replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-
-  for (const post of window.DEMO_POSTS) {
-    const el = document.createElement("article");
-    el.className = "post";
-    el.innerHTML = `
-      <h2 data-bdk-title>${esc(post.title)}</h2>
-      <div class="meta">${esc(post.nick)} · <time datetime="${post.posted_at}">${fmt(post.posted_at)}</time></div>
-      <div class="body" data-bdk-comment data-id="${post.id}">
-        <div class="text">${esc(post.body)}</div>
-        <time datetime="${post.posted_at}" hidden></time>
-      </div>
-      <div class="comments">
-        ${post.comments.map(c => `
-          <div class="comment" data-bdk-comment data-id="${c.id}">
-            <span class="nick">${esc(c.nick)}</span><time datetime="${c.posted_at}">${fmt(c.posted_at)}</time>
-            <div class="text">${esc(c.text)}</div>
-          </div>`).join("")}
-      </div>`;
-    feed.appendChild(el);
+  const fmtDate = (iso) => { const d = new Date(iso); return `${d.getFullYear()}. ${d.getMonth()+1}. ${d.getDate()}.`; };
+  function ago(iso) {
+    const s = (Date.now() - new Date(iso)) / 1000;
+    const units = [[31536000,"년"],[2592000,"개월"],[604800,"주"],[86400,"일"],[3600,"시간"],[60,"분"]];
+    for (const [sec, u] of units) if (s >= sec) return `${Math.floor(s / sec)}${u} 전`;
+    return "방금 전";
   }
+  const hue = (s) => [...s].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7);
+
+  function render(id) {
+    const v = DEMO_VIDEOS.find((x) => x.id === id) || DEMO_VIDEOS[0];
+    document.getElementById("title").textContent = v.title;
+    document.getElementById("chan").textContent = v.channel;
+    document.getElementById("desc").textContent = `조회수 예시 · ${fmtDate(v.uploaded)} 업로드`;
+    document.getElementById("count").textContent = `댓글 ${v.comments.length}개`;
+    // 확장이 읽는 구조: [data-bdk-comment] 안의 .text(본문), [data-published](정확한 작성 시각), .main(배지 위치)
+    document.getElementById("comments").innerHTML = v.comments.map((c) => `
+      <div class="comment" data-bdk-comment data-id="${c.id}">
+        <div class="av" style="--h:${hue(c.nick)}">${esc(c.nick.slice(1, 2))}</div>
+        <div class="main">
+          <div class="head"><span class="nick">${esc(c.nick)}</span><a class="time" href="#" data-published="${c.published}">${ago(c.published)}</a></div>
+          <div class="text">${esc(c.text)}</div>
+          <div class="actions"><span>👍 ${c.likes}</span><span>👎</span><span>답글</span></div>
+        </div>
+      </div>`).join("");
+    document.getElementById("list").innerHTML = DEMO_VIDEOS.map((x) => `
+      <div class="vid ${x.id === v.id ? "on" : ""}" data-v="${x.id}">
+        <div class="thumb">${esc(x.title.replace(/^\[.*?\]\s*/, ""))}</div>
+        <div><div class="t">${esc(x.title)}</div><div class="m">${esc(x.channel)} · ${ago(x.uploaded)}</div></div>
+      </div>`).join("");
+    history.replaceState(null, "", `#${v.id}`);
+  }
+
+  document.getElementById("list").addEventListener("click", (e) => {
+    const v = e.target.closest("[data-v]");
+    if (v) { render(v.dataset.v); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  });
+  render(location.hash.slice(1));
 </script>
 </body>
 </html>

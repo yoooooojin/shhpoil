@@ -28,6 +28,9 @@
 
   // ---------------------------------------------------------------- 관찰
   function idOf(el) {
+    // 사이트가 고유 번호를 주면 그걸 씀 (유튜브: 댓글 번호) → 화면이 다시 그려져도 같은 글로 인식
+    const siteId = site.idOf?.(el);
+    if (siteId) return (el.dataset.bdkId = siteId);
     if (!el.dataset.bdkId) el.dataset.bdkId = el.dataset.id || `bdk-${++seq}`;
     return el.dataset.bdkId;
   }
@@ -47,14 +50,46 @@
   function scan(root = document) {
     for (const el of site.items(root)) {
       const id = idOf(el);
-      if (state.has(id)) continue;
+      const known = state.get(id);
+      if (known) {
+        // 같은 글인데 화면 요소가 새로 그려진 경우 (유튜브, 시연 페이지 탭 전환): 결과를 다시 입힘
+        if (known.el !== el) {
+          known.el = el;
+          markItem(el);
+          if (["hide", "blur", "show", "error"].includes(known.status)) setStatus(id, known.status);
+          else if (settings.enabled) el.classList.add("bdk-pending");
+          io.observe(el);
+        }
+        continue;
+      }
       const text = site.text(el);
       if (!text) continue;
-      state.set(id, { el, text, postedAt: site.postedAt(el), context: site.context(el), result: null, status: "new" });
-      el.classList.add("bdk-item");
+      const t = site.postedAt(el); // { iso, exact } 또는 null
+      state.set(id, {
+        el, text,
+        postedAt: t?.iso || null,
+        timeExact: !!t?.exact,
+        context: site.context(el),
+        result: null, status: "new",
+      });
+      markItem(el);
       if (settings.enabled) el.classList.add("bdk-pending");
       io.observe(el);
     }
+  }
+
+  // 흐리게 할 부분을 표시 (사이트가 지정하면 본문만, 아니면 요소 전체)
+  function markItem(el) {
+    el.classList.add("bdk-item");
+    const target = site.blurTarget?.(el);
+    if (target) {
+      el.classList.add("bdk-has-target");
+      target.classList.add("bdk-target");
+    }
+  }
+
+  function badgeOf(el, id) {
+    return el.querySelector(`.bdk-badge[data-for="${CSS.escape(id)}"]`);
   }
 
   new MutationObserver((muts) => {
@@ -89,6 +124,7 @@
       ids.forEach((id) => applyKeyword(id));
     } else {
       ids.forEach((id) => (state.get(id).status = "judging"));
+      await resolveTimes(ids);
       const res = await judge(ids, false);
       if (!res?.ok) {
         // 실패하면 열어 둠 (화면을 막아버리지 않기)
@@ -106,6 +142,25 @@
       }
     }
     if (queue.size) flush();
+  }
+
+  // 정확한 작성 시각이 없는 글은 사이트별 방법으로 채움 (유튜브: YouTube Data API)
+  async function resolveTimes(ids) {
+    if (!site.resolveTimes) return;
+    const need = ids.filter((id) => !state.get(id).timeExact);
+    if (!need.length) return;
+    try {
+      const times = await site.resolveTimes(need); // { id: iso }
+      for (const [id, iso] of Object.entries(times || {})) {
+        const s = state.get(id);
+        if (s && iso) {
+          s.postedAt = iso;
+          s.timeExact = true;
+        }
+      }
+    } catch (e) {
+      console.warn("[쉿스포] 작성 시각 조회 실패, 대략적인 시각으로 진행:", e);
+    }
   }
 
   // ---------------------------------------------------------------- 행동 결정
@@ -129,7 +184,7 @@
     const T = Math.min(0.95, Math.max(0.05, baseThreshold() + offset));
     const p = isAhead(r) ? r.p_spoiler : r.p_spoiler * 0.1; // 이미 본 내용이면 사실상 무해
 
-    s.why = buildWhy(r, p, T);
+    s.why = buildWhy(r, p, T) + (s.timeExact ? "" : " · 작성 시각 추정");
 
     if (Math.abs(p - T) < 0.1 && !r.reasoned && isAhead(r)) {
       // 애매함 → 일단 흐려 두고 추론 모드로 다시 묻기
@@ -176,7 +231,7 @@
     s.status = status;
     const el = s.el;
     el.classList.remove("bdk-pending", "bdk-hide", "bdk-blur", "bdk-show", "bdk-revealed");
-    el.querySelector(":scope > .bdk-badge")?.remove();
+    badgeOf(el, id)?.remove();
     if (status === "error" || status === "show") {
       if (status === "show") el.classList.add("bdk-show");
       addBadge(el, id, status);
@@ -192,6 +247,7 @@
     const s = state.get(id);
     const b = document.createElement("div");
     b.className = "bdk-badge";
+    b.dataset.for = id;
     const label = { hide: "스포 가림", blur: "스포 의심", show: "", error: "" }[status];
     b.innerHTML = `
       ${label ? `<span class="bdk-label bdk-${status}">${label}</span>` : ""}
@@ -205,7 +261,7 @@
       e.stopPropagation();
       onFeedback(id, act);
     });
-    el.prepend(b);
+    (site.badgeHost?.(el) || el).prepend(b);
   }
 
   // ---------------------------------------------------------------- 학습
@@ -264,7 +320,7 @@
       s.result = null;
       s.status = "new";
       s.el.classList.remove("bdk-hide", "bdk-blur", "bdk-show", "bdk-revealed");
-      s.el.querySelector(":scope > .bdk-badge")?.remove();
+      badgeOf(s.el, id)?.remove();
       if (settings.enabled) {
         s.el.classList.add("bdk-pending");
         enqueue(id);

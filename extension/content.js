@@ -11,16 +11,16 @@
 
   const DEFAULTS = {
     enabled: true,
-    mode: "zoro",               // "zoro" | "keyword"
+    mode: "zoro", // "zoro" | "keyword"
     show: "흑백요리사2",
     watchedEpisode: 3,
-    sensitivity: 0.5,           // 0: 확실한 스포만 ~ 1: 조금이라도 의심되면
+    sensitivity: 0.5, // 0: 확실한 스포만 ~ 1: 조금이라도 의심되면
     keywords: "흑백요리사,최강록,우승,탈락",
-    typeOffsets: {},            // 학습 결과: 글 종류별 기준 보정값
+    typeOffsets: {}, // 학습 결과: 글 종류별 기준 보정값
   };
 
   let settings = { ...DEFAULTS };
-  const state = new Map();      // id → { el, text, postedAt, result, status }
+  const state = new Map(); // id → { el, text, postedAt, result, status }
   const queue = new Set();
   let flushTimer = null;
   let seq = 0;
@@ -44,7 +44,7 @@
         if (s && s.status === "new") enqueue(id);
       }
     },
-    { rootMargin: "200px 0px" } // 화면 바로 아래 것까지 미리
+    { rootMargin: "200px 0px" }, // 화면 바로 아래 것까지 미리
   );
 
   function scan(root = document) {
@@ -56,7 +56,8 @@
         if (known.el !== el) {
           known.el = el;
           markItem(el);
-          if (["hide", "blur", "show", "error"].includes(known.status)) setStatus(id, known.status);
+          if (["hide", "blur", "show", "error"].includes(known.status))
+            setStatus(id, known.status);
           else if (settings.enabled) el.classList.add("bdk-pending");
           io.observe(el);
         }
@@ -66,11 +67,13 @@
       if (!text) continue;
       const t = site.postedAt(el); // { iso, exact } 또는 null
       state.set(id, {
-        el, text,
+        el,
+        text,
         postedAt: t?.iso || null,
         timeExact: !!t?.exact,
         context: site.context(el),
-        result: null, status: "new",
+        result: null,
+        status: "new",
       });
       markItem(el);
       if (settings.enabled) el.classList.add("bdk-pending");
@@ -108,9 +111,15 @@
       const s = state.get(id);
       return { id, text: s.text, posted_at: s.postedAt, context: s.context };
     });
-    const payload = { show: settings.show, watched_episode: settings.watchedEpisode, comments };
+    const payload = {
+      show: settings.show,
+      watched_episode: settings.watchedEpisode,
+      comments,
+    };
     return new Promise((resolve) =>
-      chrome.runtime.sendMessage({ type: "judge", payload, reason }, (res) => resolve(res))
+      chrome.runtime.sendMessage({ type: "judge", payload, reason }, (res) =>
+        resolve(res),
+      ),
     );
   }
 
@@ -172,8 +181,9 @@
   function isAhead(r) {
     // 이 글이 "내가 본 회차 뒤"의 내용을 말하는가?
     const w = settings.watchedEpisode;
-    if (r.matched_event && r.matched_event.p >= 0.5) return r.matched_event.episode > w;
-    if (r.written_after_episode == null) return true;  // 시점을 모르면 보수적으로
+    if (r.matched_event && r.matched_event.p >= 0.5)
+      return r.matched_event.episode > w;
+    if (r.written_after_episode == null) return true; // 시점을 모르면 보수적으로
     return r.written_after_episode > w;
   }
 
@@ -211,7 +221,10 @@
 
   function applyKeyword(id) {
     const s = state.get(id);
-    const words = settings.keywords.split(",").map((w) => w.trim()).filter(Boolean);
+    const words = settings.keywords
+      .split(",")
+      .map((w) => w.trim())
+      .filter(Boolean);
     const hit = words.find((w) => s.text.includes(w));
     s.result = null;
     s.why = hit ? `키워드 "${hit}" 포함` : "키워드 없음";
@@ -220,8 +233,10 @@
 
   function buildWhy(r, p, T) {
     const parts = [`${r.type}`, `스포 확률 ${Math.round(r.p_spoiler * 100)}%`];
-    if (r.matched_event) parts.push(`${r.matched_event.episode}화 사건 "${r.matched_event.text}"`);
-    else if (r.written_after_episode != null) parts.push(`${r.written_after_episode}화 공개 후 작성`);
+    if (r.matched_event)
+      parts.push(`${r.matched_event.episode}화 사건 "${r.matched_event.text}"`);
+    else if (r.written_after_episode != null)
+      parts.push(`${r.written_after_episode}화 공개 후 작성`);
     parts.push(`기준 ${Math.round(T * 100)}%`);
     if (r.reasoned) parts.push("추론 모드");
     return parts.join(" · ");
@@ -232,7 +247,13 @@
     const s = state.get(id);
     s.status = status;
     const el = s.el;
-    el.classList.remove("bdk-pending", "bdk-hide", "bdk-blur", "bdk-show", "bdk-revealed");
+    el.classList.remove(
+      "bdk-pending",
+      "bdk-hide",
+      "bdk-blur",
+      "bdk-show",
+      "bdk-revealed",
+    );
     badgeOf(el, id)?.remove();
     if (status === "error" || status === "show") {
       if (status === "show") el.classList.add("bdk-show");
@@ -251,12 +272,24 @@
     const b = document.createElement("div");
     b.className = "bdk-badge";
     b.dataset.for = id;
-    const label = { hide: "스포 가림", blur: "스포 의심", show: "", error: "" }[status];
-    b.innerHTML = `
-      ${label ? `<span class="bdk-label bdk-${status}">${label}</span>` : ""}
-      ${status === "hide" || status === "blur" ? `<button data-act="reveal">보기</button><button data-act="notspoiler">스포 아님</button>` : ""}
-      ${status === "show" ? `<button data-act="wasspoiler" class="bdk-quiet">스포였음</button>` : ""}
-      <span class="bdk-why" title="${s.why || ""}">ⓘ</span>`;
+    // 유튜브는 Trusted Types 보안 정책 때문에 innerHTML을 막아서, 요소를 하나씩 만들어 붙임
+    const label = { hide: "스포 가림", blur: "스포 의심" }[status];
+    if (label) b.append(h("span", { class: `bdk-label bdk-${status}` }, label));
+    if (status === "hide" || status === "blur") {
+      b.append(
+        h("button", { "data-act": "reveal" }, "보기"),
+        h("button", { "data-act": "notspoiler" }, "스포 아님"),
+      );
+    }
+    if (status === "show")
+      b.append(
+        h(
+          "button",
+          { "data-act": "wasspoiler", class: "bdk-quiet" },
+          "스포였음",
+        ),
+      );
+    b.append(h("span", { class: "bdk-why", title: s.why || "" }, "ⓘ"));
     b.addEventListener("click", (e) => {
       const act = e.target?.dataset?.act;
       if (!act) return;
@@ -285,8 +318,13 @@
       const cur = settings.typeOffsets[type] || 0;
       // 잘못 가렸다 → 이 종류는 기준을 올림 / 놓쳤다 → 기준을 내림
       const next = act === "notspoiler" ? cur + 0.05 : cur - 0.05;
-      settings.typeOffsets[type] = Math.max(-0.3, Math.min(0.3, Math.round(next * 100) / 100));
-      toast(`"${type}" 기준을 ${act === "notspoiler" ? "느슨하게" : "엄격하게"} 조정했어요 (${settings.typeOffsets[type] > 0 ? "+" : ""}${Math.round(settings.typeOffsets[type] * 100)}%p)`);
+      settings.typeOffsets[type] = Math.max(
+        -0.3,
+        Math.min(0.3, Math.round(next * 100) / 100),
+      );
+      toast(
+        `"${type}" 기준을 ${act === "notspoiler" ? "느슨하게" : "엄격하게"} 조정했어요 (${settings.typeOffsets[type] > 0 ? "+" : ""}${Math.round(settings.typeOffsets[type] * 100)}%p)`,
+      );
       try {
         await chrome.storage.local.set({ typeOffsets: settings.typeOffsets });
       } catch (e) {
@@ -296,7 +334,9 @@
       }
     }
     // 같은 종류의 다른 글들도 새 기준으로 다시 결정
-    if (type) for (const [otherId, o] of state) if (otherId !== id && o.result?.type === type) decide(otherId);
+    if (type)
+      for (const [otherId, o] of state)
+        if (otherId !== id && o.result?.type === type) decide(otherId);
   }
 
   // ---------------------------------------------------------------- 상태 표시
@@ -305,15 +345,27 @@
   document.documentElement.appendChild(hud);
 
   function refreshCounts() {
-    let hidden = 0, blurred = 0;
+    let hidden = 0,
+      blurred = 0;
     for (const s of state.values()) {
       if (s.status === "hide") hidden++;
       else if (s.status === "blur") blurred++;
     }
-    hud.innerHTML = settings.enabled
-      ? `<b>🤫 쉿스포</b> ${settings.mode === "keyword" ? "키워드 모드" : "판정 모드"} · ${settings.watchedEpisode}화까지 봄
-         <br>가림 ${hidden} · 의심 ${blurred} · 추론 ${stats.reasoned}${stats.lastMs ? ` · 응답 ${stats.lastMs}ms` : ""}`
-      : `<b>🤫 쉿스포</b> 꺼짐`;
+    hud.replaceChildren(h("b", {}, "🤫 쉿스포"));
+    if (!settings.enabled) return hud.append(" 꺼짐");
+    hud.append(
+      ` ${settings.mode === "keyword" ? "키워드 모드" : "판정 모드"} · ${settings.watchedEpisode}화까지 봄`,
+      h("br"),
+      `가림 ${hidden} · 의심 ${blurred} · 추론 ${stats.reasoned}${stats.lastMs ? ` · 응답 ${stats.lastMs}ms` : ""}`,
+    );
+  }
+
+  // 작은 요소 생성 도우미 (innerHTML 대신)
+  function h(tag, attrs = {}, text) {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    if (text != null) e.textContent = text;
+    return e;
   }
 
   let toastTimer;
@@ -347,10 +399,15 @@
     if (area !== "local") return;
     for (const [k, v] of Object.entries(changes)) settings[k] = v.newValue;
     const onlyLearning = Object.keys(changes).every((k) => k === "typeOffsets");
-    const learningReset = changes.typeOffsets && !Object.keys(changes.typeOffsets.newValue || {}).length;
+    const learningReset =
+      changes.typeOffsets &&
+      !Object.keys(changes.typeOffsets.newValue || {}).length;
     if (learningReset) {
       // 팝업의 "학습 초기화" → 직접 누른 결정도 함께 지움
-      for (const s of state.values()) { s.override = null; s.revealed = false; }
+      for (const s of state.values()) {
+        s.override = null;
+        s.revealed = false;
+      }
     }
     if (!onlyLearning || learningReset) rejudgeAll();
   });

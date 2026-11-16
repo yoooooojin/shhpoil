@@ -14,18 +14,14 @@ const $ = (id) => document.getElementById(id);
 const save = (obj) => chrome.storage.local.set(obj);
 
 function renderMode(mode) {
-  document
-    .querySelectorAll(".seg button")
-    .forEach((b) => b.classList.toggle("on", b.dataset.mode === mode));
+  document.querySelectorAll(".seg button").forEach((b) => b.classList.toggle("on", b.dataset.mode === mode));
   $("kwBox").style.display = mode === "keyword" ? "block" : "none";
 }
 
 function renderOffsets(offsets) {
   const entries = Object.entries(offsets || {}).filter(([, v]) => v);
   $("offsets").textContent = entries.length
-    ? entries
-        .map(([k, v]) => `${k} ${v > 0 ? "+" : ""}${Math.round(v * 100)}%p`)
-        .join(" · ")
+    ? entries.map(([k, v]) => `${k} ${v > 0 ? "+" : ""}${Math.round(v * 100)}%p`).join(" · ")
     : "아직 없음";
 }
 
@@ -53,33 +49,21 @@ chrome.storage.local.get(DEFAULTS, (s) => {
   checkHealth(s.serverUrl);
 });
 
-$("enabled").addEventListener("change", (e) =>
-  save({ enabled: e.target.checked }),
-);
-$("show").addEventListener("change", (e) =>
-  save({ show: e.target.value.trim() }),
-);
-$("watchedEpisode").addEventListener("change", (e) =>
-  save({ watchedEpisode: Number(e.target.value) || 0 }),
-);
-$("sensitivity").addEventListener("change", (e) =>
-  save({ sensitivity: Number(e.target.value) }),
-);
-$("keywords").addEventListener("change", (e) =>
-  save({ keywords: e.target.value }),
-);
+$("enabled").addEventListener("change", (e) => save({ enabled: e.target.checked }));
+$("show").addEventListener("change", (e) => save({ show: e.target.value.trim() }));
+$("watchedEpisode").addEventListener("change", (e) => save({ watchedEpisode: Number(e.target.value) || 0 }));
+$("sensitivity").addEventListener("change", (e) => save({ sensitivity: Number(e.target.value) }));
+$("keywords").addEventListener("change", (e) => save({ keywords: e.target.value }));
 $("serverUrl").addEventListener("change", (e) => {
   save({ serverUrl: e.target.value.trim() });
   checkHealth(e.target.value.trim());
 });
-$("ytApiKey").addEventListener("change", (e) =>
-  save({ ytApiKey: e.target.value.trim() }),
-);
+$("ytApiKey").addEventListener("change", (e) => save({ ytApiKey: e.target.value.trim() }));
 document.querySelectorAll(".seg button").forEach((b) =>
   b.addEventListener("click", () => {
     renderMode(b.dataset.mode);
     save({ mode: b.dataset.mode });
-  }),
+  })
 );
 $("resetLearning").addEventListener("click", () => {
   save({ typeOffsets: {} });

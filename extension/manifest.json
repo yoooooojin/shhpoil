@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "본데까지",
+  "version": "0.1.0",
+  "description": "내가 본 데까지만 보여주는 스포일러 판정 에이전트 (해커톤 프로토타입)",
+  "permissions": ["storage"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_popup": "popup.html", "default_title": "본데까지" },
+  "content_scripts": [
+    {
+      "matches": ["http://localhost/*", "http://127.0.0.1/*", "https://theqoo.net/*"],
+      "js": ["sites.js", "content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

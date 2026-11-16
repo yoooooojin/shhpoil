@@ -1,0 +1,36 @@
+.bdk-item { position: relative; transition: filter .25s, opacity .25s; }
+
+/* 판정 기다리는 동안은 살짝 흐리게 (스포가 잠깐이라도 보이지 않게) */
+.bdk-pending > :not(.bdk-badge) { filter: blur(4px); }
+
+.bdk-hide > :not(.bdk-badge) { filter: blur(9px); user-select: none; pointer-events: none; }
+.bdk-blur > :not(.bdk-badge) { filter: blur(4px); opacity: .75; user-select: none; pointer-events: none; }
+.bdk-revealed > :not(.bdk-badge) { filter: none; opacity: 1; }
+
+.bdk-badge {
+  display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+  font: 12px/1.4 -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  margin-bottom: 4px;
+}
+.bdk-label { padding: 1px 8px; border-radius: 99px; font-weight: 600; }
+.bdk-label.bdk-hide { background: #ffe1e1; color: #b3261e; }
+.bdk-label.bdk-blur { background: #fff1d6; color: #8a5a00; }
+.bdk-badge button {
+  border: 1px solid #ccc; background: #fff; border-radius: 6px;
+  padding: 1px 8px; font-size: 12px; cursor: pointer; color: #333;
+}
+.bdk-badge button:hover { background: #f2f2f2; }
+.bdk-badge .bdk-quiet { opacity: 0; transition: opacity .2s; }
+.bdk-item:hover .bdk-quiet { opacity: 1; }
+.bdk-why { cursor: help; color: #999; }
+
+.bdk-hud {
+  position: fixed; right: 16px; bottom: 16px; z-index: 2147483647;
+  background: rgba(30,30,30,.92); color: #fff; padding: 10px 14px; border-radius: 10px;
+  font: 12px/1.5 -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  box-shadow: 0 4px 16px rgba(0,0,0,.25); max-width: 280px;
+}
+.bdk-hud.bdk-toasting::after {
+  content: attr(data-toast); display: block; margin-top: 6px; padding-top: 6px;
+  border-top: 1px solid rgba(255,255,255,.2); color: #ffd36b;
+}

@@ -247,7 +247,32 @@ def video_id_of(s):
     sys.exit(f"영상 주소를 못 알아봤어요: {s}")
 
 
+# 검색은 1번에 100점이라 결과를 저장해 두고 다시 돌릴 때 재사용 (같은 검색어·기간이면 결과가 거의 안 바뀜)
+SEARCH_CACHE = Path("data/yt_search_cache.json")
+_cache = None
+
+
 def get(path, **params):
+    global _cache
+    ck = None
+    if path == "search":
+        if _cache is None:
+            try:
+                _cache = json.loads(SEARCH_CACHE.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                _cache = {}
+        ck = json.dumps({k: v for k, v in sorted(params.items()) if k != "key"}, ensure_ascii=False)
+        if ck in _cache:
+            return _cache[ck]
+    data = _get(path, **params)
+    if ck:
+        _cache[ck] = data
+        SEARCH_CACHE.parent.mkdir(parents=True, exist_ok=True)
+        SEARCH_CACHE.write_text(json.dumps(_cache, ensure_ascii=False), encoding="utf-8")
+    return data
+
+
+def _get(path, **params):
     url = f"{API}/{path}?{urllib.parse.urlencode(params)}"
     try:
         with urllib.request.urlopen(url, timeout=20) as r:
@@ -261,7 +286,8 @@ def get(path, **params):
             pass
         hint = {
             "commentsDisabled": "이 영상은 댓글이 꺼져 있어요",
-            "quotaExceeded": "오늘 할당량을 다 썼어요",
+            "quotaExceeded": "오늘 할당량을 다 썼어요 (한국 시간 오후 5시에 초기화)",
+            "rateLimitExceeded": "오늘 검색 한도를 다 썼어요 (한국 시간 오후 5시에 초기화). 다시 돌리면 이미 한 검색은 저장된 결과를 써요",
             "keyInvalid": "API 키가 잘못됐어요",
             "forbidden": "키 제한 설정을 확인하세요 (YouTube Data API v3 허용)",
         }.get(reason, body[:200])

@@ -24,6 +24,8 @@ API (README와 같음, 필드만 추가)
   p_spoiler = Σ P(성격) × 위 값.  k를 모르면 [k > w] 대신 0.5
 """
 import json
+import statistics
+from concurrent.futures import ThreadPoolExecutor
 import os
 import sys
 import time
@@ -45,6 +47,11 @@ LEARN_FROM_COMMENTS = os.environ.get("LEARN_FROM_COMMENTS", "0") == "1"
 # '감상·출연자 이야기'로 분류돼도 뒤 화 사건을 짚으면 스포일 수 있다 ("최강록 우승 미쳤다").
 # 0이면 예전 공식 그대로. dev에서 0 / 0.5 / 1 을 비교해 고른다.
 W_REACTION = float(os.environ.get("W_REACTION", "0"))
+# 속도: 댓글 묶음을 동시에 Zoro에 보냄 (SGLang이 GPU에서 한꺼번에 처리). 1이면 예전처럼 하나씩.
+JUDGE_PARALLEL = int(os.environ.get("JUDGE_PARALLEL", "20"))
+# 사건 후보: 댓글에 나온 출연자 이름·별명으로 먼저 추림. 0이면 기억장 전체를 선택지로.
+PREFILTER = os.environ.get("PREFILTER", "1") == "1"
+MAX_CANDIDATES = int(os.environ.get("MAX_CANDIDATES", "6"))
 
 
 def _after(k, w, approx=False):
@@ -64,8 +71,14 @@ def judge_one(show, w, c, reason, sync_memory):
     k = schedule.episode_after(show, c.get("posted_at"))
     approx = c.get("posted_at_precision") == "approx"
     events = memory.for_question(show)
+    if PREFILTER:
+        ctx = c.get("context") or ""
+        look = c["text"] + (ctx.split("원댓글:", 1)[1] if "원댓글:" in ctx else "")  # 영상 제목은 빼고
+        events = Q.candidate_events(events, show, look, MAX_CANDIDATES)
 
+    tz = time.time()
     out = zoro_client.decide(Q.build_state(show, c), Q.build_questions(events, show), reasoning=reason)
+    zoro_ms = (time.time() - tz) * 1000
     ans = out["answers"]
     t = ans["type"]
     probs = t.get("probabilities") or {t["choice"]: 1.0}
@@ -116,6 +129,8 @@ def judge_one(show, w, c, reason, sync_memory):
         "reason_brief": (out.get("reasoning") or "")[:80] or None,
         "memory_update": memory_update,
         "latency_ms": round((time.time() - t0) * 1000, 1),
+        "timing": {"zoro_calls": 1, "zoro_ms": round(zoro_ms, 1), "n_event_options": len(events),
+                   "reasoning": bool(reason)},
     }
 
 
@@ -126,7 +141,9 @@ def judge(body, reason=False, sync_memory=False):
     # 기억장이 시간 순서대로 쌓이도록 오래된 글부터 처리, 응답은 받은 순서대로
     order = sorted(range(len(comments)), key=lambda i: comments[i].get("posted_at") or "")
     results = [None] * len(comments)
-    for i in order:
+    t0 = time.time()
+
+    def one(i):
         c = comments[i]
         try:
             results[i] = judge_one(show, w, c, reason, sync_memory)
@@ -134,6 +151,20 @@ def judge(body, reason=False, sync_memory=False):
             results[i] = {"id": c.get("id"), "p_spoiler": 0.0, "type": "무관",
                           "written_after_episode": schedule.episode_after(show, c.get("posted_at")),
                           "matched_event": None, "reasoned": False, "error": str(e)}
+
+    # 기억장을 고치는 모드(sync_memory)는 시간 순서가 중요해서 하나씩, 평소에는 동시에
+    if sync_memory or JUDGE_PARALLEL <= 1 or len(order) <= 1:
+        for i in order:
+            one(i)
+    else:
+        with ThreadPoolExecutor(max_workers=min(JUDGE_PARALLEL, len(order))) as pool:
+            list(pool.map(one, order))
+    wall = (time.time() - t0) * 1000
+    zs = [r.get("timing", {}).get("zoro_ms", 0) for r in results if r]
+    opts = [r.get("timing", {}).get("n_event_options", 0) for r in results if r]
+    print(f"[judge] {len(comments)}개 {wall:.0f}ms (reason={reason}) | Zoro 호출 {len(zs)}번, "
+          f"평균 {statistics.mean(zs) if zs else 0:.0f}ms, 최대 {max(zs) if zs else 0:.0f}ms | "
+          f"사건 선택지 평균 {statistics.mean(opts) if opts else 0:.1f}개", file=sys.stderr, flush=True)
     return {"results": results, "engine": engine_name(),
             "memory": {"size": len(memory.load(show)), "added": memory.drain_recent(show),
                        "pending": memory.pending()}}

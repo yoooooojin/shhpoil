@@ -15,8 +15,8 @@ ZORO_CHAT_URL = os.environ.get("ZORO_CHAT_URL", ZORO_URL)
 ZORO_MODEL = os.environ.get("ZORO_MODEL", "trillionlabs/Zoro-1")
 TIMEOUT = float(os.environ.get("ZORO_TIMEOUT", "60"))
 MAX_REASONING_TOKENS = int(os.environ.get("ZORO_MAX_REASONING_TOKENS", "4096"))  # 모델 카드 권장 최소
-# Zoro는 동시 요청이 적을수록 요청당 빠르다 (모델 카드: 1개일 때 1.48배, 16개면 1.14배)
-_slots = threading.Semaphore(int(os.environ.get("ZORO_CONCURRENCY", "2")))
+# 동시에 보내면 SGLang이 GPU에서 묶어 처리한다. 요청당 속도는 조금 줄지만 묶음 전체는 훨씬 빠르다.
+_slots = threading.Semaphore(int(os.environ.get("ZORO_CONCURRENCY", "20")))
 
 
 def _post(url, body):

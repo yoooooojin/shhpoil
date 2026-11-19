@@ -166,6 +166,42 @@ def judge_one(show, w, c, reason, sync_memory):
     }
 
 
+def report(body):
+    """사용자 "스포였음" 신고 → 기억장. README의 POST /report 약속.
+
+    1) 판단을 한 번 돌려 기존 사건과 맞으면 그 사건(added: false, 언급 수 +1)
+    2) 아니면 Zoro가 댓글에서 사건 한 문장을 뽑아 새 사건으로 추가(added: true)
+       회차 = 작성 시점(본 회차보다 뒤일 때), 모르면 본 회차 + 1
+    """
+    show = body.get("show", "")
+    w = int(body.get("watched_episode") or 0)
+    c = body.get("comment") or {}
+    if not c.get("text"):
+        return {"memory_update": None, "error": "comment.text 없음"}
+    r = judge_one(show, w, c, False, False)
+    m = r.get("matched_event")
+    if m and m["p"] >= MATCH_EXISTING_P:
+        e = memory.touch(show, m["text"], None) or {"text": m["text"], "episode": m["episode"]}
+        return {"memory_update": {"added": False, "event": {"id": e.get("id"), "text": e["text"], "episode": e["episode"]}}}
+
+    text = zoro_client.chat(Q.EXTRACT_PROMPT.format(show=show, text=c["text"]), max_tokens=48).strip().strip('"')
+    if not text or text in ("없음", "해당 없음"):
+        return {"memory_update": None}
+    k = r.get("written_after_episode")
+    last = max((ep for _, ep in schedule.shows().get(show, [])), default=None)
+    ep = k if (k and k > w) else w + 1
+    if last:
+        ep = min(ep, last)
+    table = Q.people_aliases(show)
+    flat = c["text"].replace(" ", "")
+    people = [n for n, al in table.items() if any(x.replace(" ", "") in flat for x in [n, *al] if len(x) >= 2)]
+    e = memory.add(show, text, ep, "report", people=people or None, check="[신고로 추가] 사람 확인 필요")
+    if e is None:  # 같은 문장이 이미 있음
+        e = next((x for x in memory.load(show) if x["text"] == text), {"id": None, "text": text, "episode": ep})
+        return {"memory_update": {"added": False, "event": {"id": e.get("id"), "text": e["text"], "episode": e["episode"]}}}
+    return {"memory_update": {"added": True, "event": {"id": e["id"], "text": e["text"], "episode": e["episode"]}}}
+
+
 def judge(body, reason=False, sync_memory=False):
     show = body.get("show", "")
     w = int(body.get("watched_episode") or 0)
@@ -266,6 +302,8 @@ class Handler(SimpleHTTPRequestHandler):
         if u.path == "/judge":
             return self._json(judge(body, reason=q.get("reason", ["false"])[0] == "true",
                                     sync_memory=q.get("memory", [""])[0] == "sync"))
+        if u.path == "/report":
+            return self._json(report(body))
         if u.path == "/memory/add":  # {"show": ..., "events": [{"text", "episode", "source"}]} 평가·시연에서 기억장 채우기
             added = [memory.add(body.get("show", ""), e["text"], int(e["episode"]), e.get("source"),
                                 people=e.get("people"), aliases=e.get("aliases"), check=e.get("check"))

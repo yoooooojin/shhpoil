@@ -433,7 +433,8 @@
         ),
       );
     const open = status === "show" || status === "error" || s.revealed;
-    b.append(h("span", { class: "bdk-why", title: (open ? s.whyFull : s.whySafe) || "" }, "ⓘ"));
+    const why = (open ? s.whyFull : s.whySafe) || "";
+    b.append(h("button", { class: "bdk-why", "data-act": "why", title: "판단 이유 보기" }, s.whyOpen ? "ⓘ 닫기" : "ⓘ"));
     const cmp = compareTag(s);
     if (cmp)
       b.append(
@@ -443,6 +444,8 @@
           cmp === "miss" ? "키워드였다면 놓침" : "키워드였다면 괜히 가림",
         ),
       );
+    // ⓘ를 누르면 판단 이유를 한 줄로 펼침 (가린 글은 사건 내용 없이)
+    if (s.whyOpen && why) b.append(h("div", { class: "bdk-detail" }, why));
     b.addEventListener("click", (e) => {
       const act = e.target?.dataset?.act;
       if (!act) return;
@@ -456,6 +459,11 @@
   // ---------------------------------------------------------------- 학습
   async function onFeedback(id, act) {
     const s = state.get(id);
+    if (act === "why") {
+      s.whyOpen = !s.whyOpen;
+      setStatus(id, s.status);
+      return;
+    }
     if (act === "reveal" || act === "rehide") {
       s.revealed = act === "reveal";
       setStatus(id, s.status); // 열림/닫힘 상태로 다시 그림 (열리면 이유에 사건 내용도 표시)

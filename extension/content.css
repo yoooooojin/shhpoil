@@ -67,3 +67,8 @@
 .bdk-hud .bdk-cmpline { color: #9ec1ff; font-weight: 600; }
 /* 보이는 댓글이라도 비교 꼬리표가 있으면 "스포였음" 버튼과 함께 늘 보이게 */
 .bdk-item .bdk-badge:has(.bdk-cmp) .bdk-quiet { opacity: .55; }
+/* ⓘ 판단 이유: 누르면 펼쳐짐 */
+.bdk-badge button.bdk-why { border: 0; background: none; padding: 0 2px; color: #999; cursor: pointer; }
+.bdk-badge button.bdk-why:hover { color: #555; background: none; }
+.bdk-detail { flex-basis: 100%; font-size: 12px; color: #555; background: #f4f4f4; border-radius: 6px; padding: 4px 8px; }
+html[dark] .bdk-detail { background: #272727; color: #ccc; }

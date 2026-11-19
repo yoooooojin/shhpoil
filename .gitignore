@@ -6,3 +6,7 @@ data/raw/
 data/labeled/
 *.safetensors
 *.bin
+
+data/*.csv
+engine/memory_store/
+eval/out/

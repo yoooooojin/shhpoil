@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>쉿스포 라벨링</title>
+<style>
+  :root { --bg:#f7f7f5; --card:#fff; --ink:#1d1d1f; --mute:#6e6e73; --line:#e3e3e0; --acc:#3b6ef5; --warn:#d9480f; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,"Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif; background:var(--bg); color:var(--ink); }
+  header { display:flex; gap:12px; align-items:center; padding:12px 20px; border-bottom:1px solid var(--line); background:var(--card); flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0 12px 0 0; }
+  header input[type=text] { width:110px; }
+  button, input, select { font:inherit; font-size:14px; }
+  button { padding:6px 12px; border:1px solid var(--line); background:#fff; border-radius:8px; cursor:pointer; }
+  button.primary { background:var(--acc); color:#fff; border-color:var(--acc); }
+  input[type=text], input[type=number] { padding:6px 8px; border:1px solid var(--line); border-radius:8px; }
+  main { max-width:760px; margin:24px auto; padding:0 20px; }
+  .progress { height:6px; background:var(--line); border-radius:3px; overflow:hidden; margin-bottom:16px; }
+  .progress > div { height:100%; background:var(--acc); width:0; }
+  .meta { color:var(--mute); font-size:13px; margin-bottom:8px; display:flex; gap:14px; flex-wrap:wrap; }
+  .meta b { color:var(--ink); font-weight:600; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:22px; }
+  .text { font-size:20px; line-height:1.55; margin:6px 0 20px; white-space:pre-wrap; word-break:keep-all; }
+  .types { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-bottom:16px; }
+  .types button { padding:10px 6px; font-size:13px; line-height:1.3; }
+  .types button.on { background:var(--acc); color:#fff; border-color:var(--acc); }
+  .types kbd { display:block; font-size:11px; opacity:.6; }
+  .row { display:flex; gap:10px; align-items:center; margin-bottom:10px; flex-wrap:wrap; }
+  .row label { font-size:13px; color:var(--mute); min-width:96px; }
+  #ep { width:90px; }
+  #note { flex:1; min-width:200px; }
+  .hint { font-size:12px; color:var(--mute); margin-top:14px; line-height:1.7; }
+  .hint kbd, .types kbd { font-family:ui-monospace,monospace; }
+  .warn { color:var(--warn); font-size:13px; min-height:18px; }
+  .empty { text-align:center; color:var(--mute); padding:80px 0; }
+  .nav { display:flex; justify-content:space-between; margin-top:14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>쉿스포 라벨링</h1>
+  <label>댓글 CSV <input type="file" id="file" accept=".csv"></label>
+  <label>공개 일정(선택) <input type="file" id="sched" accept=".json"></label>
+  <input type="text" id="labeler" placeholder="라벨러 이름">
+  <label><input type="checkbox" id="onlyTodo" checked> 미라벨만</label>
+  <span style="flex:1"></span>
+  <span id="count" style="font-size:13px;color:var(--mute)"></span>
+  <button class="primary" id="export">CSV 저장</button>
+</header>
+<main>
+  <div class="progress"><div id="bar"></div></div>
+  <div id="view"><div class="empty">라벨링할 CSV를 여세요 (tools/collect_comments.py로 만든 파일).</div></div>
+  <div class="hint">
+    <kbd>1</kbd>~<kbd>5</kbd> 글 성격 · 결과 공개/유출/루머는 회차 칸으로 자동 이동 → 숫자 입력 후 <kbd>Enter</kbd> ·
+    회차 칸이 비면 "드러나는 사건 없음" · <kbd>Enter</kbd> 저장하고 다음 · <kbd>←</kbd>/<kbd>→</kbd> 이동 · <kbd>N</kbd> 메모 칸 · <kbd>S</kbd> 건너뛰기<br>
+    작업 내용은 이 브라우저에 자동 저장됩니다. 그래도 끝나면 꼭 <b>CSV 저장</b>을 누르세요.
+  </div>
+</main>
+<script>
+const TYPES = ["결과 공개", "유출 주장", "루머·추측", "감상·출연자 이야기", "무관"];
+const NEEDS_EP = new Set(["결과 공개", "유출 주장", "루머·추측"]);
+const FIELDS = ["id","text","posted_at","context","type","reveals_episode","event_note","labeler"];
+let rows = [], idx = 0, fileName = "labels.csv", schedule = null, headers = FIELDS;
+const ALIAS = { comment_id: "id", published_at: "posted_at", video_title: "context", event_episode: "reveals_episode", note: "event_note" };
+
+function parseCSV(s) {
+  s = s.replace(/^﻿/, "");
+  const out = []; let row = [], cell = "", q = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (q) {
+      if (c === '"') { if (s[i+1] === '"') { cell += '"'; i++; } else q = false; }
+      else cell += c;
+    } else if (c === '"') q = true;
+    else if (c === ",") { row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r") {
+      if (c === "\r" && s[i+1] === "\n") i++;
+      row.push(cell); cell = ""; if (row.some(x => x !== "")) out.push(row); row = [];
+    } else cell += c;
+  }
+  row.push(cell); if (row.some(x => x !== "")) out.push(row);
+  const head = (out.shift() || []).map(h => h.trim());
+  headers = head.length ? head : FIELDS;
+  return out.map(r => { const o = Object.fromEntries(head.map((h, i) => [h, r[i] ?? ""]));
+    for (const [a, b] of Object.entries(ALIAS)) if (a in o && !(b in o)) o[b] = o[a];
+    return o; });
+}
+function toCSV(list) {
+  const esc = v => { v = v == null ? "" : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const cols = headers.includes("labeler") ? headers : [...headers, "labeler"];
+  const val = (r, f) => (f in ALIAS ? r[ALIAS[f]] : r[f]);
+  return "﻿" + [cols.join(","), ...list.map(r => cols.map(f => esc(val(r, f))).join(","))].join("\r\n");
+}
+function store() { try { localStorage.setItem("shhpoil:" + fileName, JSON.stringify(rows)); } catch (e) {} }
+function restore(name) { try { const v = localStorage.getItem("shhpoil:" + name); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+
+function epAfter(posted) {
+  if (!schedule || !posted) return null;
+  const t = new Date(posted).getTime(); if (isNaN(t)) return null;
+  let k = 0; for (const e of schedule) if (new Date(e.released_at).getTime() <= t) k = Math.max(k, e.ep);
+  return k;
+}
+function visible() { return document.getElementById("onlyTodo").checked ? rows.map((r, i) => [r, i]).filter(([r]) => !r.type) : rows.map((r, i) => [r, i]); }
+
+function render() {
+  const done = rows.filter(r => r.type).length;
+  document.getElementById("count").textContent = rows.length ? `${done} / ${rows.length} 완료` : "";
+  document.getElementById("bar").style.width = rows.length ? (100 * done / rows.length) + "%" : "0";
+  const view = document.getElementById("view");
+  if (!rows.length) return;
+  if (idx >= rows.length) idx = rows.length - 1;
+  if (idx < 0) idx = 0;
+  const r = rows[idx];
+  const k = epAfter(r.posted_at) ?? (r.written_after_episode !== undefined && r.written_after_episode !== "" ? +r.written_after_episode : null);
+  view.innerHTML = `
+    <div class="meta"><span>#${idx + 1}</span><span>${esc(r.context || "")}</span>
+      <span>${esc((r.posted_at || "").replace("T", " ").slice(0, 16))}</span>
+      ${k != null ? `<span>작성 시점: <b>${k}화 공개 후</b></span>` : ""}</div>
+    <div class="card">
+      <div class="text">${esc(r.text)}</div>
+      <div class="types">${TYPES.map((t, i) => `<button data-t="${t}" class="${r.type === t ? "on" : ""}"><kbd>${i + 1}</kbd>${t}</button>`).join("")}</div>
+      <div class="row"><label>드러나는 회차</label><input type="number" id="ep" min="1" value="${r.reveals_episode || ""}" placeholder="없음">
+        <span style="font-size:12px;color:var(--mute)">이 글로 알게 되는 가장 늦은 회차</span></div>
+      <div class="row"><label>사건 메모</label><input type="text" id="note" value="${esc(r.event_note || "")}" placeholder="예: A 탈락 (돌려 말함)"></div>
+      <div class="warn" id="warn"></div>
+    </div>
+    <div class="nav"><button id="prev">← 이전</button><button class="primary" id="save">저장하고 다음 (Enter)</button></div>`;
+  view.querySelectorAll(".types button").forEach(b => b.onclick = () => setType(b.dataset.t));
+  document.getElementById("prev").onclick = () => { idx--; render(); };
+  document.getElementById("save").onclick = save;
+  check();
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]); }
+function check() {
+  const r = rows[idx], w = document.getElementById("warn"); if (!w) return;
+  const ep = document.getElementById("ep").value;
+  const k = epAfter(r.posted_at) ?? (r.written_after_episode !== undefined && r.written_after_episode !== "" ? +r.written_after_episode : null);
+  let msg = "";
+  if (r.type === "결과 공개" && !ep) msg = "결과 공개인데 회차가 비어 있어요.";
+  else if (r.type === "결과 공개" && k != null && +ep > k) msg = `작성 시점(${k}화) 이후 회차예요. 유출 주장 아닌가요?`;
+  else if ((r.type === "감상·출연자 이야기" || r.type === "무관") && ep) msg = "감상/무관인데 회차가 있어요. 정말 결과가 드러나나요?";
+  w.textContent = msg;
+}
+function setType(t) {
+  rows[idx].type = t;
+  document.querySelectorAll(".types button").forEach(b => b.classList.toggle("on", b.dataset.t === t));
+  if (NEEDS_EP.has(t)) document.getElementById("ep").focus();
+  else { document.getElementById("ep").value = ""; save(); return; }
+  check();
+}
+function save() {
+  const r = rows[idx]; if (!r.type) { document.getElementById("warn").textContent = "글 성격을 먼저 고르세요 (1~5)."; return; }
+  r.reveals_episode = document.getElementById("ep").value.trim();
+  r.event_note = document.getElementById("note").value.trim();
+  r.labeler = document.getElementById("labeler").value.trim() || r.labeler;
+  store(); next();
+}
+function next() {
+  const only = document.getElementById("onlyTodo").checked;
+  let j = idx + 1;
+  if (only) while (j < rows.length && rows[j].type) j++;
+  idx = Math.min(j, rows.length - 1); render();
+}
+
+document.getElementById("file").onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  fileName = f.name;
+  const fresh = parseCSV(await f.text());
+  const saved = restore(fileName);
+  rows = saved && saved.length === fresh.length && confirm("이 파일의 이전 작업을 이어서 할까요?") ? saved : fresh;
+  idx = Math.max(0, rows.findIndex(r => !r.type)); render();
+};
+document.getElementById("sched").onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const j = JSON.parse(await f.text());
+    if (j.episodes) schedule = j.episodes;
+    else { // engine/config/shows.json 형식: {"작품": {"drops": [[시각, 회차], ...]}}
+      const first = Object.values(j).find(v => v && v.drops);
+      schedule = first.drops.map(([t, ep]) => ({ ep, released_at: t }));
+    }
+    render();
+  } catch (err) { alert("일정표 JSON을 읽지 못했어요."); }
+};
+document.getElementById("onlyTodo").onchange = render;
+document.getElementById("labeler").value = (() => { try { return localStorage.getItem("shhpoil:labeler") || ""; } catch (e) { return ""; } })();
+document.getElementById("labeler").onchange = e => { try { localStorage.setItem("shhpoil:labeler", e.target.value); } catch (err) {} };
+document.getElementById("export").onclick = () => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([toCSV(rows)], { type: "text/csv;charset=utf-8" }));
+  a.download = fileName.replace(/\.csv$/, "") + "_labeled.csv"; a.click();
+};
+document.addEventListener("input", e => { if (e.target.id === "ep") check(); });
+document.addEventListener("keydown", e => {
+  if (!rows.length) return;
+  const inField = ["INPUT"].includes(document.activeElement.tagName) && document.activeElement.type !== "checkbox" && document.activeElement.type !== "file";
+  if (e.key === "Enter") { e.preventDefault(); save(); return; }
+  if (inField) { if (e.key === "Escape") document.activeElement.blur(); return; }
+  if (e.key >= "1" && e.key <= "5") setType(TYPES[+e.key - 1]);
+  else if (e.key === "ArrowLeft") { idx--; render(); }
+  else if (e.key === "ArrowRight" || e.key.toLowerCase() === "s") { idx++; render(); }
+  else if (e.key.toLowerCase() === "n") { e.preventDefault(); document.getElementById("note").focus(); }
+});
+</script>
+</body>
+</html>

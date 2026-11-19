@@ -1,5 +1,5 @@
 {
-  "scenario": "시나리오",
+  "scenario": "3_스포신고_기억장학습",
   "summary": {
     "lines": 77,
     "judgeCalls": 9,
@@ -21,8 +21,8 @@
   },
   "entries": [
     {
-      "event": "시나리오 \"시나리오\" 시작",
-      "scenario": "시나리오",
+      "event": "시나리오 \"3_스포신고_기억장학습\" 시작",
+      "scenario": "3_스포신고_기억장학습",
       "settings": {
         "batchSize": 20,
         "engine": "http://localhost:8790",
@@ -1254,9 +1254,7 @@
       "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
       "id": "c6",
       "kind": "comment",
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "p": 73,
       "p_used": 73,
       "reasoned": false,
@@ -1312,14 +1310,10 @@
     },
     {
       "event": "단서 모음: 영상 설명",
-      "got": [
-        "description"
-      ],
+      "got": ["description"],
       "id": "c6",
       "missing": [],
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "stage": "관찰",
       "t": "2026-11-19T13:34:26.107Z",
       "tab": 2019147897
@@ -1374,9 +1368,7 @@
       "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
       "id": "c16",
       "kind": "comment",
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "p": 70,
       "p_used": 70,
       "reasoned": false,
@@ -1389,14 +1381,10 @@
     },
     {
       "event": "단서 모음: 영상 설명",
-      "got": [
-        "description"
-      ],
+      "got": ["description"],
       "id": "c16",
       "missing": [],
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "stage": "관찰",
       "t": "2026-11-19T13:34:26.703Z",
       "tab": 2019147897
@@ -1452,9 +1440,7 @@
       "t": "2026-11-19T13:34:37.111Z",
       "tab": 2019147897,
       "type": "결과 공개",
-      "used_clues": [
-        "description"
-      ]
+      "used_clues": ["description"]
     },
     {
       "ahead": true,
@@ -1484,9 +1470,7 @@
       "t": "2026-11-19T13:34:37.738Z",
       "tab": 2019147897,
       "type": "감상·출연자 이야기",
-      "used_clues": [
-        "description"
-      ]
+      "used_clues": ["description"]
     },
     {
       "ahead": true,

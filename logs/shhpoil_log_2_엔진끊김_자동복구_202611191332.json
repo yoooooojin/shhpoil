@@ -1,5 +1,5 @@
 {
-  "scenario": "시나리오",
+  "scenario": "2_엔진끊김_자동복구",
   "summary": {
     "lines": 165,
     "judgeCalls": 21,
@@ -21,8 +21,8 @@
   },
   "entries": [
     {
-      "event": "시나리오 \"시나리오\" 시작",
-      "scenario": "시나리오",
+      "event": "시나리오 \"2_엔진끊김_자동복구\" 시작",
+      "scenario": "2_엔진끊김_자동복구",
       "settings": {
         "batchSize": 20,
         "engine": "http://localhost:8790",
@@ -249,9 +249,7 @@
       "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
       "id": "c6",
       "kind": "comment",
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "p": 74,
       "p_used": 74,
       "reasoned": false,
@@ -285,9 +283,7 @@
       "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
       "id": "c8",
       "kind": "comment",
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "p": 36,
       "p_used": 36,
       "reasoned": false,
@@ -338,9 +334,7 @@
       "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
       "id": "c16",
       "kind": "comment",
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "p": 54,
       "p_used": 54,
       "reasoned": false,
@@ -430,28 +424,20 @@
     },
     {
       "event": "단서 모음: 영상 설명",
-      "got": [
-        "description"
-      ],
+      "got": ["description"],
       "id": "c6",
       "missing": [],
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "stage": "관찰",
       "t": "2026-11-19T13:23:24.987Z",
       "tab": 2019147897
     },
     {
       "event": "단서 모음: 영상 설명",
-      "got": [
-        "description"
-      ],
+      "got": ["description"],
       "id": "c8",
       "missing": [],
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "stage": "관찰",
       "t": "2026-11-19T13:23:24.987Z",
       "tab": 2019147897
@@ -467,9 +453,7 @@
       "t": "2026-11-19T13:23:35.956Z",
       "tab": 2019147897,
       "type": "결과 공개",
-      "used_clues": [
-        "description"
-      ]
+      "used_clues": ["description"]
     },
     {
       "ahead": true,
@@ -499,9 +483,7 @@
       "t": "2026-11-19T13:23:35.959Z",
       "tab": 2019147897,
       "type": "루머·추측",
-      "used_clues": [
-        "description"
-      ]
+      "used_clues": ["description"]
     },
     {
       "ahead": true,
@@ -522,14 +504,10 @@
     },
     {
       "event": "단서 모음: 영상 설명",
-      "got": [
-        "description"
-      ],
+      "got": ["description"],
       "id": "c16",
       "missing": [],
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "stage": "관찰",
       "t": "2026-11-19T13:23:36.361Z",
       "tab": 2019147897
@@ -657,9 +635,7 @@
       "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
       "id": "c6",
       "kind": "comment",
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "p": 73,
       "p_used": 73,
       "reasoned": false,
@@ -693,9 +669,7 @@
       "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
       "id": "c8",
       "kind": "comment",
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "p": 35,
       "p_used": 35,
       "reasoned": false,
@@ -746,9 +720,7 @@
       "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
       "id": "c16",
       "kind": "comment",
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "p": 53,
       "p_used": 53,
       "reasoned": false,
@@ -780,28 +752,20 @@
     },
     {
       "event": "단서 모음: 영상 설명",
-      "got": [
-        "description"
-      ],
+      "got": ["description"],
       "id": "c6",
       "missing": [],
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "stage": "관찰",
       "t": "2026-11-19T13:23:41.984Z",
       "tab": 2019147897
     },
     {
       "event": "단서 모음: 영상 설명",
-      "got": [
-        "description"
-      ],
+      "got": ["description"],
       "id": "c8",
       "missing": [],
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "stage": "관찰",
       "t": "2026-11-19T13:23:41.984Z",
       "tab": 2019147897
@@ -845,9 +809,7 @@
       "t": "2026-11-19T13:23:53.058Z",
       "tab": 2019147897,
       "type": "루머·추측",
-      "used_clues": [
-        "description"
-      ]
+      "used_clues": ["description"]
     },
     {
       "ahead": true,
@@ -877,9 +839,7 @@
       "t": "2026-11-19T13:23:53.068Z",
       "tab": 2019147897,
       "type": "결과 공개",
-      "used_clues": [
-        "description"
-      ]
+      "used_clues": ["description"]
     },
     {
       "ahead": true,
@@ -900,14 +860,10 @@
     },
     {
       "event": "단서 모음: 영상 설명",
-      "got": [
-        "description"
-      ],
+      "got": ["description"],
       "id": "c16",
       "missing": [],
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "stage": "관찰",
       "t": "2026-11-19T13:23:53.460Z",
       "tab": 2019147897
@@ -1040,9 +996,7 @@
       "t": "2026-11-19T13:24:03.944Z",
       "tab": 2019147897,
       "type": "감상·출연자 이야기",
-      "used_clues": [
-        "description"
-      ]
+      "used_clues": ["description"]
     },
     {
       "ahead": true,
@@ -1267,9 +1221,7 @@
       "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
       "id": "c6",
       "kind": "comment",
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "p": 73,
       "p_used": 73,
       "reasoned": false,
@@ -1303,9 +1255,7 @@
       "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
       "id": "c8",
       "kind": "comment",
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "p": 36,
       "p_used": 36,
       "reasoned": false,
@@ -1356,9 +1306,7 @@
       "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
       "id": "c16",
       "kind": "comment",
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "p": 54,
       "p_used": 54,
       "reasoned": false,
@@ -1448,28 +1396,20 @@
     },
     {
       "event": "단서 모음: 영상 설명",
-      "got": [
-        "description"
-      ],
+      "got": ["description"],
       "id": "c6",
       "missing": [],
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "stage": "관찰",
       "t": "2026-11-19T13:25:00.129Z",
       "tab": 2019147897
     },
     {
       "event": "단서 모음: 영상 설명",
-      "got": [
-        "description"
-      ],
+      "got": ["description"],
       "id": "c8",
       "missing": [],
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "stage": "관찰",
       "t": "2026-11-19T13:25:00.130Z",
       "tab": 2019147897
@@ -1485,9 +1425,7 @@
       "t": "2026-11-19T13:25:11.091Z",
       "tab": 2019147897,
       "type": "루머·추측",
-      "used_clues": [
-        "description"
-      ]
+      "used_clues": ["description"]
     },
     {
       "ahead": true,
@@ -1517,9 +1455,7 @@
       "t": "2026-11-19T13:25:11.092Z",
       "tab": 2019147897,
       "type": "결과 공개",
-      "used_clues": [
-        "description"
-      ]
+      "used_clues": ["description"]
     },
     {
       "ahead": true,
@@ -1540,14 +1476,10 @@
     },
     {
       "event": "단서 모음: 영상 설명",
-      "got": [
-        "description"
-      ],
+      "got": ["description"],
       "id": "c16",
       "missing": [],
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "stage": "관찰",
       "t": "2026-11-19T13:25:12.136Z",
       "tab": 2019147897
@@ -1563,9 +1495,7 @@
       "t": "2026-11-19T13:25:22.388Z",
       "tab": 2019147897,
       "type": "감상·출연자 이야기",
-      "used_clues": [
-        "description"
-      ]
+      "used_clues": ["description"]
     },
     {
       "ahead": true,
@@ -1790,9 +1720,7 @@
       "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
       "id": "c6",
       "kind": "comment",
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "p": 73,
       "p_used": 73,
       "reasoned": false,
@@ -1826,9 +1754,7 @@
       "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
       "id": "c8",
       "kind": "comment",
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "p": 36,
       "p_used": 36,
       "reasoned": false,
@@ -1879,9 +1805,7 @@
       "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
       "id": "c16",
       "kind": "comment",
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "p": 54,
       "p_used": 54,
       "reasoned": false,
@@ -1971,28 +1895,20 @@
     },
     {
       "event": "단서 모음: 영상 설명",
-      "got": [
-        "description"
-      ],
+      "got": ["description"],
       "id": "c6",
       "missing": [],
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "stage": "관찰",
       "t": "2026-11-19T13:26:44.984Z",
       "tab": 2019147897
     },
     {
       "event": "단서 모음: 영상 설명",
-      "got": [
-        "description"
-      ],
+      "got": ["description"],
       "id": "c8",
       "missing": [],
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "stage": "관찰",
       "t": "2026-11-19T13:26:44.984Z",
       "tab": 2019147897
@@ -2184,9 +2100,7 @@
       "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
       "id": "c6",
       "kind": "comment",
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "p": 73,
       "p_used": 73,
       "reasoned": false,
@@ -2220,9 +2134,7 @@
       "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
       "id": "c8",
       "kind": "comment",
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "p": 35,
       "p_used": 35,
       "reasoned": false,
@@ -2273,9 +2185,7 @@
       "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
       "id": "c16",
       "kind": "comment",
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "p": 54,
       "p_used": 54,
       "reasoned": false,
@@ -2348,28 +2258,20 @@
     },
     {
       "event": "단서 모음: 영상 설명",
-      "got": [
-        "description"
-      ],
+      "got": ["description"],
       "id": "c6",
       "missing": [],
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "stage": "관찰",
       "t": "2026-11-19T13:26:56.995Z",
       "tab": 2019147897
     },
     {
       "event": "단서 모음: 영상 설명",
-      "got": [
-        "description"
-      ],
+      "got": ["description"],
       "id": "c8",
       "missing": [],
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "stage": "관찰",
       "t": "2026-11-19T13:26:56.996Z",
       "tab": 2019147897
@@ -2385,9 +2287,7 @@
       "t": "2026-11-19T13:27:07.986Z",
       "tab": 2019147897,
       "type": "결과 공개",
-      "used_clues": [
-        "description"
-      ]
+      "used_clues": ["description"]
     },
     {
       "ahead": true,
@@ -2417,9 +2317,7 @@
       "t": "2026-11-19T13:27:07.988Z",
       "tab": 2019147897,
       "type": "루머·추측",
-      "used_clues": [
-        "description"
-      ]
+      "used_clues": ["description"]
     },
     {
       "ahead": true,
@@ -2440,14 +2338,10 @@
     },
     {
       "event": "단서 모음: 영상 설명",
-      "got": [
-        "description"
-      ],
+      "got": ["description"],
       "id": "c16",
       "missing": [],
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "stage": "관찰",
       "t": "2026-11-19T13:27:09.135Z",
       "tab": 2019147897
@@ -2463,9 +2357,7 @@
       "t": "2026-11-19T13:27:19.368Z",
       "tab": 2019147897,
       "type": "감상·출연자 이야기",
-      "used_clues": [
-        "description"
-      ]
+      "used_clues": ["description"]
     },
     {
       "ahead": true,
@@ -3118,9 +3010,7 @@
       "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
       "id": "c6",
       "kind": "comment",
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "p": 73,
       "p_used": 73,
       "reasoned": false,
@@ -3197,9 +3087,7 @@
       "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
       "id": "c16",
       "kind": "comment",
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "p": 54,
       "p_used": 54,
       "reasoned": false,
@@ -3289,28 +3177,20 @@
     },
     {
       "event": "단서 모음: 영상 설명",
-      "got": [
-        "description"
-      ],
+      "got": ["description"],
       "id": "c6",
       "missing": [],
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "stage": "관찰",
       "t": "2026-11-19T13:31:44.266Z",
       "tab": 2019147897
     },
     {
       "event": "단서 모음: 영상 설명",
-      "got": [
-        "description"
-      ],
+      "got": ["description"],
       "id": "c16",
       "missing": [],
-      "need": [
-        "description"
-      ],
+      "need": ["description"],
       "stage": "관찰",
       "t": "2026-11-19T13:31:44.266Z",
       "tab": 2019147897
@@ -3326,9 +3206,7 @@
       "t": "2026-11-19T13:31:55.331Z",
       "tab": 2019147897,
       "type": "감상·출연자 이야기",
-      "used_clues": [
-        "description"
-      ]
+      "used_clues": ["description"]
     },
     {
       "ahead": true,
@@ -3358,9 +3236,7 @@
       "t": "2026-11-19T13:31:55.332Z",
       "tab": 2019147897,
       "type": "결과 공개",
-      "used_clues": [
-        "description"
-      ]
+      "used_clues": ["description"]
     },
     {
       "ahead": true,

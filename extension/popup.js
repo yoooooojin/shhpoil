@@ -169,17 +169,21 @@ $("fbClear").addEventListener("click", () => {
 const STAGES = ["시작", "관찰", "판단", "라우팅", "행동", "학습", "오류", "복구"];
 function logSummary(log) {
   const by = (st) => log.filter((e) => e.stage === st);
-  const judged = by("판단").filter((e) => e.event.startsWith("Zoro-1 판정"));
+  const judged = by("판단").filter((e) => e.event.startsWith("Zoro-1"));
+  const first = judged.filter((e) => e.event.startsWith("Zoro-1 판정"));
   const ms = judged.map((e) => e.ms).filter((x) => x != null);
   const acts = by("행동");
   const count = (w) => acts.filter((e) => e.event === w || e.event.endsWith(`→ ${w}`)).length;
   return {
     lines: log.length,
     judgeCalls: judged.length,
-    judgedItems: judged.reduce((n, e) => n + (e.count || 0), 0),
+    firstCalls: first.length,
+    judgedItems: first.reduce((n, e) => n + (e.count || 0), 0),
     avgMs: ms.length ? Math.round(ms.reduce((a, b) => a + b, 0) / ms.length) : null,
     reasoned: by("판단").filter((e) => e.event.includes("추론 모드")).length,
-    routed: by("라우팅").length,
+    routed: by("라우팅").filter((e) => !e.need).length,
+    clueAsked: by("라우팅").filter((e) => e.need).length,
+    clueJudged: by("판단").filter((e) => e.used_clues).length,
     hidden: count("가림"),
     blurred: acts.filter((e) => e.event.startsWith("흐리게")).length,
     shown: count("그대로 보임"),
@@ -271,6 +275,11 @@ function toMarkdown(log) {
     if (e.watched != null && e.stage !== "관찰") bits.push(`본 회차 ${e.watched}화`);
     if (e.why) bits.push(e.why);
     if (e.keyword) bits.push(`키워드 "${e.keyword}"`);
+    const names = (l) => (l || []).map((k) => ({ parent: "원댓글", replies: "답글", description: "영상 설명", timestamp: "타임스탬프" }[k] || k)).join("·");
+    if (e.need && e.stage === "관찰") bits.push(`요청 ${names(e.need)}`);
+    if (e.got) bits.push(e.got.length ? `모음 ${names(e.got)}` : "모은 것 없음");
+    if (e.missing?.length) bits.push(`못 구함 ${names(e.missing)}`);
+    if (e.used_clues) bits.push(`쓴 단서 ${names(e.used_clues)}`);
     if (e.count != null) bits.push(`${e.count}개`);
     if (e.comments != null) bits.push(`댓글 ${e.comments} · 영상 ${e.videos}`);
     if (e.ms != null) bits.push(`${e.ms}ms`);
@@ -303,7 +312,8 @@ function toMarkdown(log) {
     "",
     "| 항목 | 값 |",
     "| --- | --- |",
-    `| Zoro-1 판정 요청 | ${s.judgeCalls}번 (글 ${s.judgedItems}개${s.avgMs != null ? `, 평균 ${s.avgMs}ms` : ""}) |`,
+    `| Zoro-1 판정 요청 | ${s.judgeCalls}번 (처음 판정 ${s.firstCalls}번 · 글 ${s.judgedItems}개${s.avgMs != null ? `, 평균 ${s.avgMs}ms` : ""}) |`,
+    `| 라우팅: Zoro가 단서 요청 → 모아서 다시 판정 | ${s.clueAsked}개 (다시 판정 ${s.clueJudged}개) |`,
     `| 라우팅: 애매해서 추론 모드로 다시 물음 | ${s.routed}개 (응답 ${s.reasoned}개) |`,
     `| 행동: 가림 · 흐림 · 그대로 | ${s.hidden} · ${s.blurred} · ${s.shown} |`,
     `| 행동: 영상 경고 · 미리보기 막음 | ${s.guard} · ${s.preview} |`,

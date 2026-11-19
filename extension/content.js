@@ -106,7 +106,7 @@
           markItem(el, site);
           if (["hide", "blur", "show", "error"].includes(known.status))
             setStatus(id, known.status);
-          else if (settings.enabled) el.classList.add("bdk-pending");
+          else if (settings.enabled) el.classList.add("bdk-pending"), mirror(el);
           io.observe(el);
         }
         return;
@@ -127,8 +127,18 @@
       });
       markItem(el, site);
       if (settings.enabled) el.classList.add("bdk-pending");
+      mirror(el);
       io.observe(el);
     }
+  }
+
+  // X(React)는 마우스를 올리고 뗄 때마다 글 요소의 class를 다시 써서 흐림이 잠깐 풀림 →
+  // 상태를 React가 건드리지 않는 data 속성에도 같이 적어 두고, X용 CSS는 이 속성을 봄
+  function mirror(el) {
+    const c = el.classList;
+    el.dataset.bdkState = c.contains("bdk-hide") ? "hide" : c.contains("bdk-blur") ? "blur" : c.contains("bdk-pending") ? "pending" : c.contains("bdk-show") ? "show" : "";
+    if (c.contains("bdk-revealed")) el.dataset.bdkRevealed = "1";
+    else delete el.dataset.bdkRevealed;
   }
 
   // 흐리게 할 부분을 표시 (사이트가 지정하면 본문만, 아니면 요소 전체)
@@ -147,9 +157,11 @@
   document.addEventListener(
     "click",
     (e) => {
-      const item = e.target.closest?.(".bdk-item.bdk-hide:not(.bdk-revealed):not(.bdk-video), .bdk-item.bdk-blur:not(.bdk-revealed):not(.bdk-video)");
+      const item =
+        e.target.closest?.(".bdk-item.bdk-hide:not(.bdk-revealed):not(.bdk-video), .bdk-item.bdk-blur:not(.bdk-revealed):not(.bdk-video)") ||
+        e.target.closest?.('article[data-bdk-state="hide"]:not([data-bdk-revealed]), article[data-bdk-state="blur"]:not([data-bdk-revealed])'); // X: class가 지워졌을 때
       if (!item || e.target.closest(".bdk-badge")) return;
-      const target = item.classList.contains("bdk-has-target") ? item.querySelector(".bdk-target") : item;
+      const target = item.querySelector(".bdk-target") || item.querySelector('[data-testid="tweetText"]') || item;
       if (!target?.contains(e.target)) return;
       e.preventDefault();
       e.stopPropagation();
@@ -571,12 +583,14 @@
     badgeOf(el, id)?.remove();
     if (status === "error" || status === "show") {
       if (status === "show") el.classList.add("bdk-show");
+      mirror(el);
       addBadge(el, id, status);
       refreshCounts();
       return;
     }
     el.classList.add(status === "hide" ? "bdk-hide" : "bdk-blur");
     if (s.revealed) el.classList.add("bdk-revealed"); // "보기"로 열어 둔 건 다시 판단돼도 열린 채로
+    mirror(el);
     addBadge(el, id, status);
     refreshCounts();
   }
@@ -1279,6 +1293,7 @@
       } else {
         s.el.classList.remove("bdk-pending");
       }
+      mirror(s.el);
     }
     refreshCounts();
   }

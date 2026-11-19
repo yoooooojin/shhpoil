@@ -259,6 +259,16 @@ SHEET_CRITERIA = {
 }
 
 
+# 3단계 (SHEET_LEVELS=3): 돌려 말한 글이 '모름'으로 쏠리지 않게 중간 칸을 둔다
+SHEET_SURE = "확실히 알게 됨"
+SHEET_HINT = "짐작하게 됨"
+SHEET_CRITERIA3 = {
+    SHEET_SURE: "안 본 회차의 결과(누가 이기거나 지는지, 진출·탈락·우승, 결승 진출자, 점수)를 직접 말함",
+    SHEET_HINT: "결과를 직접 말하진 않지만 별명·메뉴·장면·반응으로 돌려 말해서, 안 본 내용을 아는 사람만 쓸 수 있는 글",
+    SHEET_NO: "안 본 결과와 관계없음: 출연자 칭찬·감상·응원, 이미 본 회차 이야기, 근거 없는 예상, 작품과 무관한 글",
+}
+
+
 def _sheet_line(e, table):
     line = f"{e['episode']}화: {e['text']}"
     extra = []
@@ -288,5 +298,12 @@ def build_sheet_state(show, comment, events, w, max_seen=12):
     return state, len(later)
 
 
-def build_sheet_question():
-    return {"reveal": {"type": "choice", "instructions": SHEET_INSTRUCTIONS, "criteria": dict(SHEET_CRITERIA)}}
+def build_sheet_question(levels=2):
+    crit = SHEET_CRITERIA3 if levels == 3 else SHEET_CRITERIA
+    return {"reveal": {"type": "choice", "instructions": SHEET_INSTRUCTIONS, "criteria": dict(crit)}}
+
+
+def sheet_prob(probs, levels=2, half=0.5):
+    if levels == 3:
+        return float(probs.get(SHEET_SURE, 0.0)) + half * float(probs.get(SHEET_HINT, 0.0))
+    return float(probs.get(SHEET_YES, 0.0))

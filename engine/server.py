@@ -68,6 +68,8 @@ CLUE_MIN_P = float(os.environ.get("CLUE_MIN_P", "0.15"))
 SHEET = os.environ.get("SHEET", "0") == "1"
 COMBINE = os.environ.get("COMBINE", "max")        # event | sheet | max | mean : 최종 p를 어떻게 정할지
 SHEET_EARLY = float(os.environ.get("SHEET_EARLY", "0.5"))  # 안 본 회차가 공개되기 전에 쓴 글이면 (유출 말고는 알 수 없으니) 이만큼 곱함
+SHEET_LEVELS = int(os.environ.get("SHEET_LEVELS", "2"))   # 2: 알게 됨/모름 · 3: 확실히/짐작/모름
+SHEET_HALF = float(os.environ.get("SHEET_HALF", "0.5"))    # 3단계일 때 '짐작하게 됨'의 무게
 _sheet_pool = ThreadPoolExecutor(max_workers=JUDGE_PARALLEL)
 _TS = re.compile(r"\b\d{1,2}:\d{2}(?::\d{2})?\b")
 
@@ -122,7 +124,7 @@ def judge_one(show, w, c, reason, sync_memory):
     if SHEET:
         st, n_later = Q.build_sheet_state(show, c, memory.load(show), w)
         if n_later:
-            sheet_fut = _sheet_pool.submit(zoro_client.decide, st, Q.build_sheet_question(), mode)
+            sheet_fut = _sheet_pool.submit(zoro_client.decide, st, Q.build_sheet_question(SHEET_LEVELS), mode)
     out = zoro_client.decide(Q.build_state(show, c), Q.build_questions(events, show, ask_clue), reasoning=mode)
     zoro_ms = (time.time() - tz) * 1000
     ans = out["answers"]
@@ -155,7 +157,7 @@ def judge_one(show, w, c, reason, sync_memory):
             so = sheet_fut.result()
             sheet_reasoned = bool(so["reasoned"])
             sp = so["answers"]["reveal"].get("probabilities") or {so["answers"]["reveal"]["choice"]: 1.0}
-            p_sheet_raw = float(sp.get(Q.SHEET_YES, 0.0))
+            p_sheet_raw = Q.sheet_prob(sp, SHEET_LEVELS, SHEET_HALF)
         early = (k is not None and k <= w)  # 안 본 회차가 나오기 전에 쓴 글
         p_sheet = p_sheet_raw * (SHEET_EARLY if early else 1.0)
         p = {"event": p_event, "sheet": p_sheet, "max": max(p_event, p_sheet),

@@ -58,6 +58,9 @@ PREFILTER = os.environ.get("PREFILTER", "1")
 MAX_CANDIDATES = int(os.environ.get("MAX_CANDIDATES", "6"))
 # 단서 더 모으기: 애매한 글(확률이 이 범위)이면 에이전트가 어떤 단서를 더 볼지 골라 need_context로 요청
 CLUE_ASK = os.environ.get("CLUE_ASK", "1") == "1"
+REASON_MODE = os.environ.get("REASON_MODE", "auto")  # auto: Zoro가 확신 낮을 때만 추론 / on: 재판정 때 늘 추론
+# all: 기억장 전체에서 어느 사건인지 / later: 본 회차 뒤 사건만 선택지로 (같은 인물의 이전 회차 사건에 끌려가지 않게)
+EVENT_SCOPE = os.environ.get("EVENT_SCOPE", "all")
 CLUE_LOW = float(os.environ.get("CLUE_LOW", "0.3"))
 CLUE_HIGH = float(os.environ.get("CLUE_HIGH", "0.75"))
 CLUE_MIN_P = float(os.environ.get("CLUE_MIN_P", "0.15"))
@@ -96,6 +99,8 @@ def judge_one(show, w, c, reason, sync_memory):
     k = schedule.episode_after(show, c.get("posted_at"))
     approx = c.get("posted_at_precision") == "approx"
     events = memory.for_question(show)
+    if EVENT_SCOPE == "later":  # "아직 안 본 사건을 알려 주는가"만 묻는다: 본 회차까지의 사건은 선택지에서 뺌
+        events = [e for e in events if e["episode"] > w]
     if PREFILTER != "0":
         ctx = c.get("context") or ""
         look = c["text"] + (ctx.split("원댓글:", 1)[1] if "원댓글:" in ctx else "")  # 영상 제목은 빼고
@@ -105,8 +110,10 @@ def judge_one(show, w, c, reason, sync_memory):
 
     tz = time.time()
     has_clues = bool(c.get("clues"))
-    ask_clue = CLUE_ASK and not has_clues
-    out = zoro_client.decide(Q.build_state(show, c), Q.build_questions(events, show, ask_clue), reasoning=reason)
+    ask_clue = CLUE_ASK and not has_clues and not reason  # 재판정 땐 단서 질문을 빼야 auto 모드가 괜히 추론하지 않음
+    # 재판정(reason=true)일 때만 추론: 기본은 Zoro의 auto 모드 (확신이 낮을 때만 스스로 추론)
+    mode = (REASON_MODE if REASON_MODE != "on" else True) if reason else False
+    out = zoro_client.decide(Q.build_state(show, c), Q.build_questions(events, show, ask_clue), reasoning=mode)
     zoro_ms = (time.time() - tz) * 1000
     ans = out["answers"]
     t = ans["type"]
@@ -162,7 +169,7 @@ def judge_one(show, w, c, reason, sync_memory):
         "memory_update": memory_update,
         "latency_ms": round((time.time() - t0) * 1000, 1),
         "timing": {"zoro_calls": 1, "zoro_ms": round(zoro_ms, 1), "n_event_options": len(events),
-                   "reasoning": bool(reason)},
+                   "reasoning": bool(reason), "reason_mode": mode if reason else None},
     }
 
 
@@ -232,7 +239,9 @@ def judge(body, reason=False, sync_memory=False):
     opts = [r.get("timing", {}).get("n_event_options", 0) for r in results if r]
     print(f"[judge] {len(comments)}개 {wall:.0f}ms (reason={reason}) | Zoro 호출 {len(zs)}번, "
           f"평균 {statistics.mean(zs) if zs else 0:.0f}ms, 최대 {max(zs) if zs else 0:.0f}ms | "
-          f"사건 선택지 평균 {statistics.mean(opts) if opts else 0:.1f}개", file=sys.stderr, flush=True)
+          f"사건 선택지 평균 {statistics.mean(opts) if opts else 0:.1f}개"
+          + (f" | 실제 추론 {sum(1 for r in results if r and r.get('reasoned'))}/{len(results)}" if reason else ""),
+          file=sys.stderr, flush=True)
     return {"results": results, "engine": engine_name(),
             "memory": {"size": len(memory.load(show)), "added": memory.drain_recent(show),
                        "pending": memory.pending()}}

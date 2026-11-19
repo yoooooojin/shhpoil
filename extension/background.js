@@ -38,7 +38,7 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
 });
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  const handler = { judge: handleJudge, ytCommentTimes: handleYtTimes, health: handleHealth, ytVideoTimes: handleYtVideoTimes, report: handleReport }[msg.type];
+  const handler = { judge: handleJudge, ytCommentTimes: handleYtTimes, health: handleHealth, ytVideoTimes: handleYtVideoTimes, report: handleReport, ytClues: handleYtClues }[msg.type];
   if (!handler) return false;
   handler(msg)
     .then((res) => sendResponse({ ok: true, ...res }))
@@ -139,6 +139,33 @@ async function handleYtVideoTimes(msg) {
     }
   }
   return { times };
+}
+
+// 애매한 글의 단서: 영상 제목·설명(videos.list, 할당량 1), 댓글의 답글 5개(comments.list, 할당량 1)
+const ytSnippetCache = new Map();
+async function handleYtClues(msg) {
+  const { ytApiKey } = await chrome.storage.local.get(DEFAULTS);
+  if (!ytApiKey) throw new Error("YouTube API 키 없음");
+  const key = encodeURIComponent(ytApiKey);
+  const out = {};
+  if (msg.vid) {
+    let sn = ytSnippetCache.get(msg.vid);
+    if (!sn) {
+      const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${encodeURIComponent(msg.vid)}&key=${key}`);
+      if (!res.ok) throw new Error(`YouTube API HTTP ${res.status}`);
+      const item = (await res.json()).items?.[0]?.snippet;
+      sn = { title: item?.title || "", description: item?.description || "" };
+      ytSnippetCache.set(msg.vid, sn);
+    }
+    Object.assign(out, sn);
+  }
+  if (msg.commentId) {
+    const res = await fetch(
+      `https://www.googleapis.com/youtube/v3/comments?part=snippet&textFormat=plainText&maxResults=5&parentId=${encodeURIComponent(msg.commentId)}&key=${key}`
+    );
+    if (res.ok) out.replies = ((await res.json()).items || []).map((i) => i.snippet?.textDisplay).filter(Boolean);
+  }
+  return out;
 }
 
 // 스포 신고 → 판단 엔진이 사건을 뽑아 기억장에 추가 (POST /report)

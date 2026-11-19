@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "쉿스포 (Shhpoil)",
-  "version": "0.6.6",
+  "version": "0.7.0",
   "description": "내가 본 데까지만 보여주는 스포일러 판정 에이전트 (해커톤 프로토타입)",
   "permissions": [
     "storage",

@@ -14,6 +14,7 @@
 import json
 import os
 import random
+import re
 import sys
 import time
 from datetime import datetime, timedelta, timezone
@@ -144,17 +145,51 @@ def report(payload):
     return {"memory_update": {"added": True, "event": {"id": ev["id"], "text": ev["text"], "episode": ep}}}
 
 
+TS = re.compile(r"(?<![\d:])(\d{1,2}:)?\d{1,2}:\d{2}(?![\d:])")
+
+
+def pick_clues(c, text):
+    """애매한 글에서 더 볼 단서 최대 2개 (팀원 엔진과 같은 약속: need_context)."""
+    want = []
+    if TS.search(text):
+        want.append("timestamp")
+    if "원댓글:" in (c.get("context") or ""):
+        want.append("parent")
+    want += ["replies", "description"]
+    av = c.get("available_clues")
+    return [k for k in want if av is None or k in av][:2]
+
+
+def clue_text(cl):
+    parts = [cl.get("parent")] + [str(r)[:100] for r in (cl.get("replies") or [])]
+    parts += [(cl.get("description") or "")[:120], cl.get("timestamp")]
+    return " ".join(p for p in parts if p)
+
+
 def judge(payload, reason=False):
     show = payload.get("show", "")
     results = []
     for c in payload.get("comments", []):
         text = c.get("text", "")
         ctype, p = classify(text)
-        ev = match_event(show, text)
         # 흉내용 잡음: 실제 모델처럼 약간 흔들리게
         rng = random.Random(hash(text) & 0xFFFFFFFF)
         p = p + rng.uniform(-0.08, 0.08)
-        if reason:
+        if TS.search(text) and p < 0.5:
+            p = 0.5  # "12:20 이 장면"은 영상 내용을 모르면 애매함
+        clues = c.get("clues") or {}
+        used = [k for k, v in clues.items() if v]
+        raised = False  # 단서가 새 근거를 줬는지
+        if used:
+            extra = clue_text(clues)
+            ctype2, p2 = classify(text + " " + extra)
+            if p2 > p:
+                ctype, p, raised = ctype2, p2, True
+            if any("스포" in str(r) for r in clues.get("replies") or []):
+                ctype, p, raised = "결과 공개", max(p, 0.8), True
+            text = text + " " + extra
+        ev = match_event(show, text)
+        if reason and not raised:
             # 추론 모드 흉내: 애매한 확률을 더 분명한 쪽으로 밀어줌
             p = p + (0.15 if p >= 0.5 else -0.15)
         if ev and ev.get("reported"):
@@ -174,6 +209,10 @@ def judge(payload, reason=False):
                 ),
                 "reasoned": bool(reason),
                 "memory_update": None,
+                "need_context": (
+                    pick_clues(c, c.get("text", "")) if not reason and not clues and 0.3 <= p <= 0.75 and not ev else None
+                ),
+                "used_clues": used or None,
             }
         )
     return {"results": results, "engine": "mock-rules"}

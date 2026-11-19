@@ -17,16 +17,21 @@ const esc = (s) => s.replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt
     titleEl.dataset.vid = v.id;
     titleEl.dataset.published = v.uploaded;
     document.getElementById("chan").textContent = v.channel;
-    document.getElementById("desc").textContent = `조회수 예시 · ${fmtDate(v.uploaded)} 업로드`;
+    const desc = document.getElementById("desc");
+    desc.textContent = `조회수 예시 · ${fmtDate(v.uploaded)} 업로드${v.description ? `\n${v.description}` : ""}`;
+    desc.style.whiteSpace = "pre-line";
+    // 확장이 "단서"로 읽는 영상 설명 (실제 유튜브에선 YouTube API로 받음)
+    if (v.description) desc.dataset.description = v.description;
+    else delete desc.dataset.description;
     document.getElementById("count").textContent = `댓글 ${v.comments.length}개`;
     // 확장이 읽는 구조: [data-bdk-comment] 안의 .text(본문), [data-published](정확한 작성 시각), .main(배지 위치)
     document.getElementById("comments").innerHTML = v.comments.map((c) => `
-      <div class="comment" data-bdk-comment data-id="${c.id}">
+      <div class="comment" data-bdk-comment data-id="${c.id}"${c.replies ? ` data-replies="${esc(JSON.stringify(c.replies))}"` : ""}>
         <div class="av" style="--h:${hue(c.nick)}">${esc(c.nick.slice(1, 2))}</div>
         <div class="main">
           <div class="head"><span class="nick">${esc(c.nick)}</span><a class="time" href="#" data-published="${c.published}">${ago(c.published)}</a></div>
           <div class="text">${esc(c.text)}</div>
-          <div class="actions"><span>👍 ${c.likes}</span><span>👎</span><span>답글</span></div>
+          <div class="actions"><span>👍 ${c.likes}</span><span>👎</span><span>${c.replies ? `답글 ${c.replies.length}개` : "답글"}</span></div>
         </div>
       </div>`).join("");
     document.getElementById("list").innerHTML = DEMO_VIDEOS.map((x) => `

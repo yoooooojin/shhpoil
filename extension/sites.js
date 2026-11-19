@@ -11,6 +11,8 @@
 //   blurTarget(el)    → 흐리게 할 부분 (없으면 요소 전체)
 //   badgeHost(el)     → 배지를 넣을 곳 (없으면 요소 맨 앞)
 //   resolveTimes(ids) → async, 정확한 시각 { id: iso } (exact=false인 것만 요청됨)
+//   available(el, text, hasKey) → 이 글에서 더 모을 수 있는 단서 ["parent", "replies", "description", "timestamp"]
+//   clues(el, want, id, text)   → async, Zoro가 요청한 단서 { parent, replies[], description, timestamp }
 
 // "10개월 전", "3시간 전(수정됨)", "2 weeks ago" → 대략적인 ISO 시각
 window.BDK_parseRelative = function (label, now = new Date()) {
@@ -30,6 +32,52 @@ window.BDK_parseRelative = function (label, now = new Date()) {
   return new Date(now.getTime() - n * ms).toISOString();
 };
 
+// ---------------------------------------------------------------- 단서 모으기 도우미
+// 글 속 "12:20", "1:02:03" 같은 영상 시각
+window.BDK_timestamp = (text) => (text || "").match(/(?<![\d:])(\d{1,2}:)?\d{1,2}:\d{2}(?![\d:])/)?.[0] || null;
+const toSec = (ts) => ts.split(":").reduce((a, b) => a * 60 + Number(b), 0);
+// 영상 설명의 챕터("05:10 팀 구성")에서 그 시각이 들어가는 챕터 제목
+window.BDK_chapterAt = (desc, ts) => {
+  if (!desc || !ts) return null;
+  const at = toSec(ts);
+  let best = null;
+  for (const line of desc.split("\n")) {
+    const m = line.trim().match(/^((?:\d{1,2}:)?\d{1,2}:\d{2})\s*[-–—:]?\s*(.+)$/);
+    if (m && toSec(m[1]) <= at && (!best || toSec(m[1]) >= best.sec)) best = { sec: toSec(m[1]), title: m[2].trim() };
+  }
+  return best?.title || null;
+};
+const bgAsk = (msg) => new Promise((resolve) => chrome.runtime.sendMessage(msg, (res) => resolve(res)));
+// 유튜브 답글이면 원댓글 전문
+function ytParentText(el) {
+  if (!el.closest("ytd-comment-replies-renderer")) return null;
+  const thread = el.closest("ytd-comment-thread-renderer");
+  const parent = [...(thread?.querySelectorAll("ytd-comment-view-model, ytd-comment-renderer") || [])].find(
+    (c) => !c.closest("ytd-comment-replies-renderer")
+  );
+  return parent?.querySelector("#content-text")?.textContent?.trim() || null;
+}
+function ytCurrentVid() {
+  const m = location.pathname.match(/^\/shorts\/([\w-]{11})/);
+  if (m) return m[1];
+  return location.pathname === "/watch" ? new URLSearchParams(location.search).get("v") : null;
+}
+// 영상 설명·답글은 YouTube API로 (팝업에 키가 있을 때만)
+async function ytClues(want, { vid, commentId, text }) {
+  const out = {};
+  const needVideo = want.includes("description") || want.includes("timestamp");
+  const res = await bgAsk({ type: "ytClues", vid: needVideo ? vid : null, commentId: want.includes("replies") ? commentId : null });
+  if (!res?.ok) return out;
+  if (want.includes("replies") && res.replies?.length) out.replies = res.replies;
+  if (want.includes("description") && res.description) out.description = res.description;
+  const ts = window.BDK_timestamp(text);
+  if (want.includes("timestamp") && ts && (res.description || res.title)) {
+    const ch = window.BDK_chapterAt(res.description, ts);
+    out.timestamp = ch ? `${ts} 챕터: ${ch}` : `${ts} · 영상 "${res.title}" (챕터 정보 없음)`;
+  }
+  return out;
+}
+
 window.BDK_SITES = [
   {
     // 시연 페이지 (mock-server가 띄우는 /demo/)
@@ -47,6 +95,29 @@ window.BDK_SITES = [
     context: (_el) => document.querySelector("[data-bdk-title]")?.textContent?.trim() || "",
     blurTarget: (el) => el.querySelector(".text"),
     badgeHost: (el) => el.querySelector(".main"),
+    // 시연 페이지는 YouTube API 대신 화면에 있는 영상 설명·답글을 단서로 씀
+    available: (el, text) => {
+      const a = [];
+      if (el.dataset.replies) a.push("replies");
+      if (document.querySelector("[data-description]")?.dataset.description) {
+        a.push("description");
+        if (window.BDK_timestamp(text)) a.push("timestamp");
+      }
+      return a;
+    },
+    clues: async (el, want, _id, text) => {
+      const out = {};
+      const desc = document.querySelector("[data-description]")?.dataset.description || "";
+      if (want.includes("replies") && el.dataset.replies) out.replies = JSON.parse(el.dataset.replies);
+      if (want.includes("description") && desc) out.description = desc;
+      const ts = window.BDK_timestamp(text);
+      if (want.includes("timestamp") && ts) {
+        const ch = window.BDK_chapterAt(desc, ts);
+        if (ch) out.timestamp = `${ts} 챕터: ${ch}`;
+      }
+      await new Promise((r) => setTimeout(r, 400)); // 모으는 장면이 보이게 잠깐
+      return out;
+    },
   },
   {
     // 실제 유튜브 영상 댓글
@@ -71,13 +142,31 @@ window.BDK_SITES = [
       const title =
         document.querySelector("ytd-watch-metadata h1, h1.ytd-watch-metadata, #title h1")?.textContent?.trim() ||
         document.title.replace(/\s*-\s*YouTube\s*$/, "").trim();
-      if (!el.closest("ytd-comment-replies-renderer")) return title;
-      const thread = el.closest("ytd-comment-thread-renderer");
-      const parent = [...(thread?.querySelectorAll("ytd-comment-view-model, ytd-comment-renderer") || [])].find(
-        (c) => !c.closest("ytd-comment-replies-renderer")
-      );
-      const text = parent?.querySelector("#content-text")?.textContent?.trim().slice(0, 300);
+      const text = ytParentText(el)?.slice(0, 300);
       return text ? `${title}\n원댓글: ${text}` : title;
+    },
+    available: (el, text, hasKey) => {
+      const a = [];
+      const reply = !!el.closest("ytd-comment-replies-renderer");
+      if (reply) a.push("parent");
+      if (hasKey) {
+        if (!reply && commentIdOf(el)) a.push("replies");
+        if (ytCurrentVid()) {
+          a.push("description");
+          if (window.BDK_timestamp(text)) a.push("timestamp");
+        }
+      }
+      return a;
+    },
+    clues: async (el, want, id, text) => {
+      const out = {};
+      if (want.includes("parent")) {
+        const p = ytParentText(el);
+        if (p) out.parent = p;
+      }
+      const api = want.filter((w) => w !== "parent");
+      if (api.length) Object.assign(out, await ytClues(api, { vid: ytCurrentVid(), commentId: id.startsWith("bdk-") ? null : id, text }));
+      return out;
     },
     blurTarget: (el) => el.querySelector("#expander") || el.querySelector("#content-text"),
     badgeHost: (el) => el.querySelector("#main") || null,
@@ -133,6 +222,8 @@ window.BDK_SITES = [
       `[추천 영상 제목] ${(el.querySelector("#channel-name, ytd-channel-name")?.textContent || "").trim()}`,
     blurTarget: null, // 썸네일·제목·채널 전체를 흐림
     badgeHost: (el) => el,
+    available: (_el, _text, hasKey) => (hasKey ? ["description"] : []),
+    clues: (_el, want, id, text) => ytClues(want.filter((w) => w === "description"), { vid: id.slice(2), text }),
     resolveTimes: (ids) =>
       new Promise((resolve) => {
         const vids = ids.map((id) => id.slice(2));

@@ -178,10 +178,18 @@
   }
 
   // ---------------------------------------------------------------- 판단 요청
-  function judge(ids, reason) {
+  // reason: 추론 모드, clues: { id: {parent, replies, description, timestamp} } (애매한 글 다시 물을 때)
+  function judge(ids, reason, clues = {}) {
     const comments = ids.map((id) => {
       const s = state.get(id);
-      return { id, text: s.text, posted_at: s.postedAt, context: s.context };
+      const c = { id, text: s.text, posted_at: s.postedAt, context: s.context };
+      if (clues[id]) c.clues = clues[id];
+      else if (!reason) {
+        // 이 글에서 더 모을 수 있는 단서 → 엔진(Zoro)이 이 안에서만 골라 요청
+        const av = s.site.available?.(s.el, s.text, hasYtKey) || [];
+        if (av.length) c.available_clues = av;
+      }
+      return c;
     });
     const payload = {
       show: settings.show,
@@ -276,6 +284,69 @@
     }
   }
 
+  // ---------------------------------------------------------------- 애매하면 단서 더 모으기
+  // Zoro가 첫 판정에서 need_context(최대 2개)를 붙이면, 에이전트가 그 단서를 직접 모아서 추론 모드로 다시 물음
+  const CLUE_NAMES = { parent: "원댓글", replies: "답글", description: "영상 설명", timestamp: "타임스탬프" };
+  const clueLabel = (list) => (list || []).map((k) => CLUE_NAMES[k] || k).join("·");
+  // 받침 따라 을/를
+  const eulReul = (w) => {
+    const c = (w || "").charCodeAt(w.length - 1) - 0xac00;
+    return c >= 0 && c <= 11171 && c % 28 ? "을" : "를";
+  };
+  let hasYtKey = false;
+  chrome.storage.local.get({ ytApiKey: "" }, (s) => (hasYtKey = !!s.ytApiKey));
+  let clueBusy = 0;
+  const clueWait = [];
+  async function withClueSlot(fn) {
+    // 추론 모드는 글 하나에 10~15초라 동시에 2개까지만
+    if (clueBusy >= 2) await new Promise((r) => clueWait.push(r));
+    clueBusy++;
+    try {
+      return await fn();
+    } finally {
+      clueBusy--;
+      clueWait.shift()?.();
+    }
+  }
+  async function gatherAndAsk(id, need) {
+    const s = state.get(id);
+    s.reasked = true;
+    const round = s.round;
+    await withClueSlot(async () => {
+      if (s.round !== round) return;
+      let clues = {};
+      try {
+        clues = (await Promise.race([s.site.clues(s.el, need, id, s.text), new Promise((r) => setTimeout(() => r({}), 6000))])) || {};
+      } catch (e) {
+        console.warn("[쉿스포] 단서 모으기 실패:", e);
+      }
+      if (s.round !== round) return;
+      const got = Object.keys(clues);
+      trace("관찰", got.length ? `단서 모음: ${clueLabel(got)}` : "요청한 단서를 못 구함 → 단서 없이 추론 모드로", {
+        id, need, got, missing: need.filter((k) => !got.includes(k)),
+        clues: settings.logText ? clues : undefined,
+      });
+      const res = await judge([id], true, got.length ? { [id]: clues } : {});
+      if (s.round !== round) return;
+      s.gathering = false;
+      const r = res?.ok && res.data.results.find((x) => x.id === id);
+      if (!r) {
+        trace("오류", "단서 보고 다시 판정 실패 → 첫 판정으로 결정", { id, error: String(res?.error || "응답 없음") });
+        return decide(id);
+      }
+      r.reasoned = true;
+      s.usedClues = r.used_clues?.length ? r.used_clues : got;
+      trace("판단", `Zoro-1이 ${clueLabel(s.usedClues) || "단서"}${eulReul(clueLabel(s.usedClues) || "단서")} 더 보고 다시 판정`, {
+        id, ms: res.ms, used_clues: s.usedClues, type: r.type, p: pct(r.p_spoiler), before_p: pct(s.result?.p_spoiler),
+        event_episode: r.matched_event?.episode ?? null, event_text: raw(r.matched_event?.text),
+      });
+      stats.reasoned++;
+      s.result = r;
+      remember(id, r);
+      decide(id);
+    });
+  }
+
   // ---------------------------------------------------------------- 오류 대응: 엔진 끊김 → 키워드 대체 → 자동 복귀
   let down = false;
   let healthTimer = null;
@@ -348,13 +419,24 @@
     const p = isAhead(r) ? r.p_spoiler : r.p_spoiler * 0.1; // 이미 본 내용이면 사실상 무해
 
     const approx = s.timeExact ? "" : " · 작성 시각 추정";
-    s.whyFull = buildWhy(r, T, false) + approx;
-    s.whySafe = buildWhy(r, T, true) + approx; // 가린 댓글은 사건 내용을 숨김 (이유 표시가 스포가 되지 않게)
+    const looked = s.usedClues?.length ? ` · 🔍 ${clueLabel(s.usedClues)}${eulReul(clueLabel(s.usedClues))} 더 보고 다시 판단` : "";
+    s.whyFull = buildWhy(r, T, false) + approx + looked;
+    s.whySafe = buildWhy(r, T, true) + approx + looked; // 가린 댓글은 사건 내용을 숨김 (이유 표시가 스포가 되지 않게)
     s.short = shortWhy(r);
+    if (s.usedClues?.length && s.short) s.short = `🔍 ${s.short}`;
 
     // 다시 묻기는 댓글당 한 번만 (서버가 reasoned를 안 넣어 줘도 무한 반복하지 않게)
     const ahead = isAhead(r);
     const base = { id, kind: s.kind, type: r.type, p: pct(r.p_spoiler), p_used: pct(p), threshold: pct(T), episode: episodeOf(r), watched: settings.watchedEpisode, ahead, reasoned: !!r.reasoned };
+    // Zoro가 "이걸 더 보면 알겠다"고 고른 단서가 있으면: 일단 흐리고, 단서를 모아서 다시 묻기
+    const need = (Array.isArray(r.need_context) ? r.need_context : []).filter((k) => CLUE_NAMES[k]).slice(0, 2);
+    if (need.length && !r.reasoned && !s.reasked && ahead && s.site.clues) {
+      trace("라우팅", `Zoro가 단서 요청: ${clueLabel(need)} → 일단 흐리고 모아서 다시 묻기`, { ...base, need });
+      s.gathering = true;
+      setStatus(id, "blur");
+      gatherAndAsk(id, need);
+      return;
+    }
     if (Math.abs(p - T) < 0.1 && !r.reasoned && !s.reasked && ahead) {
       // 애매함 → 일단 흐려 두고 추론 모드로 다시 묻기
       trace("라우팅", "기준과 10%p 안쪽이라 애매함 → 일단 흐리고 추론 모드로 다시 묻기", base);
@@ -494,8 +576,8 @@
       // 흐림 자체가 "가렸다"는 신호라 설명 문구 없이: 🤫 + 몇 화 내용인지만 (자세한 건 "왜?")
       const head = h("div", { class: "bdk-head" });
       head.append(h("span", { class: "bdk-icon", title: status === "hide" ? "스포라서 가렸어요" : "스포일 수 있어서 흐려 뒀어요" }, "🤫"));
-      const ep = (s.short || "").split(" · ")[0];
-      if (ep && !s.revealed) head.append(h("span", { class: "bdk-reason" }, ep));
+      const ep = s.gathering ? `🔍 ${clueLabel(s.result?.need_context?.slice(0, 2))} 더 보는 중…` : (s.short || "").split(" · ")[0];
+      if (ep && (!s.revealed || s.gathering)) head.append(h("span", { class: "bdk-reason" }, ep));
       b.append(head);
     } else {
       // 터치 화면용: 보이는 글엔 흐린 🤫 버튼만, 눌러야 버튼이 열림 (휴대폰엔 마우스 올리기가 없어서)
@@ -1132,6 +1214,8 @@
     for (const [id, s] of state) {
       s.result = null;
       s.reasked = false;
+      s.gathering = false;
+      s.usedClues = null;
       s.round = (s.round || 0) + 1;
       s.status = "new";
       s.el.classList.remove("bdk-hide", "bdk-blur", "bdk-show", "bdk-revealed");
@@ -1149,6 +1233,7 @@
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     for (const [k, v] of Object.entries(changes)) settings[k] = v.newValue ?? DEFAULTS[k];
+    if (changes.ytApiKey) hasYtKey = !!changes.ytApiKey.newValue;
     const onlyLearning = Object.keys(changes).every((k) => LEARNING_KEYS.includes(k) || DISPLAY_KEYS.includes(k));
     if (changes.compare)
       for (const [id, s] of state) if (["hide", "blur", "show"].includes(s.status)) setStatus(id, s.status);

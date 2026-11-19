@@ -4,6 +4,7 @@
 //  - 시점: 방영 일정표로 "몇 화 공개 뒤에 쓴 글인지" 계산
 //  - 사건: 스포 기억장(memory.js)에서 출연자 이름·별명 + 결과 단어로 사건과 회차를 찾음
 //  - 신고: "스포였어요"를 누르면 그 글의 핵심 단어로 새 사건을 기억장에 추가
+//  - 단서 요청: 애매한 글(0.3~0.75)엔 need_context로 더 볼 단서를 최대 2개 고름 (팀원 엔진과 같은 약속)
 window.SHHPOIL_ENGINE = (() => {
   const DROPS = [
     ["2025-12-16T17:00:00+09:00", 3],
@@ -57,16 +58,47 @@ window.SHHPOIL_ENGINE = (() => {
     return best;
   }
 
+  const TS = /(?<![\d:])(\d{1,2}:)?\d{1,2}:\d{2}(?![\d:])/;
+  // 더 볼 단서 고르기: 타임스탬프 → 원댓글 → 답글 → 영상 설명 순으로, 확장이 모을 수 있는 것만 최대 2개
+  function pickClues(c, t) {
+    const want = [];
+    if (TS.test(t)) want.push("timestamp");
+    if ((c.context || "").includes("원댓글:")) want.push("parent");
+    want.push("replies", "description");
+    const av = c.available_clues;
+    return want.filter((k) => !av || av.includes(k)).slice(0, 2);
+  }
+  // 받은 단서를 글과 같이 읽기
+  function clueText(cl) {
+    return [cl.parent, ...(cl.replies || []).map((r) => String(r).slice(0, 100)), (cl.description || "").slice(0, 120), cl.timestamp]
+      .filter(Boolean)
+      .join(" ");
+  }
+
   function judge(payload, reason) {
     return {
       results: (payload.comments || []).map((c) => {
-        const t = c.text || "";
+        let t = c.text || "";
         let [type, p] = classify(t);
         p += jitter(t);
+        // "12:20 이 장면" 같은 글은 영상 내용을 모르면 판단이 애매함
+        if (TS.test(t) && p < 0.5) p = 0.5 + jitter(t) / 2;
+        let raised = false; // 단서가 새 근거를 줬는지
+        const used = c.clues ? Object.keys(c.clues).filter((k) => c.clues[k] && (!Array.isArray(c.clues[k]) || c.clues[k].length)) : null;
+        if (used?.length) {
+          // 단서까지 같이 읽고 다시 분류. 답글에 "스포"가 있으면 결과 얘기일 가능성이 큼
+          const extra = clueText(c.clues);
+          const [type2, p2] = classify(`${t} ${extra}`);
+          const spoilerTalk = (c.clues.replies || []).some((r) => /스포/.test(r));
+          if (p2 > p) [type, p, raised] = [type2, p2 + jitter(t) / 2, true];
+          if (spoilerTalk) [type, p, raised] = ["결과 공개", Math.max(p, 0.8), true];
+          t = `${t} ${extra}`;
+        }
         const ev = matchEvent(t);
         if (ev?.reported) [type, p] = ["결과 공개", Math.max(p, 0.82)];
         else if (ev && type === "감상·출연자 이야기" && ev.score >= 2.5) [type, p] = ["결과 공개", 0.7 + jitter(t)];
-        if (reason) p += p >= 0.5 ? 0.15 : -0.15;
+        if (reason && !raised) p += p >= 0.5 ? 0.15 : -0.15; // 단서가 별말 없으면 평소 추론 모드처럼
+        const evStrong = ev && ev.score >= 2;
         const after = writtenAfter(c.posted_at);
         // 유출·루머는 "아직 공개 안 된 결과"에 대한 말 → 사건을 못 찾아도 다음 회차 이후 내용으로 봄
         let me = ev && type !== "감상·출연자 이야기" && type !== "무관" ? { text: ev.text, episode: ev.episode, p: ev.p } : null;
@@ -81,6 +113,9 @@ window.SHHPOIL_ENGINE = (() => {
           matched_event: me,
           reasoned: !!reason,
           memory_update: null,
+          // 애매하고 기억장에서 사건도 못 찾았을 때만 단서 요청 (이미 사건을 알면 필요 없음)
+          need_context: !reason && !c.clues && p >= 0.3 && p <= 0.75 && !evStrong ? pickClues(c, c.text || "") : null,
+          used_clues: used?.length ? used : undefined,
         };
       }),
       engine: "체험판 간이 판정",

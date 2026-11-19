@@ -121,8 +121,17 @@
     return el.querySelector(`.bdk-badge[data-for="${CSS.escape(id)}"]`);
   }
 
+  // 유튜브는 화면이 아주 자주 바뀌어서, 바뀔 때마다 훑으면 페이지가 멈춤
+  // → 바뀐 게 몰려와도 0.4초에 한 번만 훑고, 쉿스포가 직접 붙인 배지·상태창 변화는 무시
+  let scanTimer = null;
+  const ours = (n) => n.nodeType !== 1 || n.classList.contains("bdk-badge") || n.classList.contains("bdk-hud");
   new MutationObserver((muts) => {
-    if (muts.some((m) => m.addedNodes.length)) scan();
+    if (scanTimer) return;
+    if (!muts.some((m) => [...m.addedNodes].some((n) => !ours(n)))) return;
+    scanTimer = setTimeout(() => {
+      scanTimer = null;
+      scan();
+    }, 400);
   }).observe(document.body, { childList: true, subtree: true });
 
   function enqueue(id) {
@@ -571,7 +580,17 @@
     refreshCounts();
   });
 
+  // 상태창은 여러 번 바뀌어도 화면 그릴 때 한 번만 다시 그림
+  let hudFrame = 0;
   function refreshCounts() {
+    if (hudFrame) return;
+    hudFrame = requestAnimationFrame(() => {
+      hudFrame = 0;
+      drawHud();
+    });
+  }
+
+  function drawHud() {
     let hidden = 0,
       blurred = 0;
     for (const s of state.values()) {

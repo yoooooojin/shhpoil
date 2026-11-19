@@ -44,9 +44,10 @@ def _normalize(raw):
         answers = {k: v for k, v in raw.items() if isinstance(v, dict)}
     return {"answers": answers,
             # 실제로 추론했을 때만 true: auto 모드는 확신이 높으면 추론을 건너뛴다
-            "reasoned": bool(raw.get("reasoned")
-                             or (isinstance(raw.get("reasoning"), str) and raw["reasoning"].strip())
-                             or (raw.get("usage") or {}).get("output_tokens", 0) > 0),
+            "reasoned": (raw["answers_source"] == "reasoned") if "answers_source" in raw else bool(
+                raw.get("reasoned") or (isinstance(raw.get("reasoning"), str) and raw["reasoning"].strip())
+                or (raw.get("usage") or {}).get("output_tokens", 0) > 0),
+            "reasoning_ms": raw.get("reasoning_ms"),
             "reasoning": raw.get("reasoning") if isinstance(raw.get("reasoning"), str) else None}
 
 

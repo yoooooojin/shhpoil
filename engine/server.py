@@ -110,7 +110,7 @@ def judge_one(show, w, c, reason, sync_memory):
 
     tz = time.time()
     has_clues = bool(c.get("clues"))
-    ask_clue = CLUE_ASK and not has_clues
+    ask_clue = CLUE_ASK and not has_clues and not reason  # 재판정 땐 단서 질문을 빼야 auto 모드가 괜히 추론하지 않음
     # 재판정(reason=true)일 때만 추론: 기본은 Zoro의 auto 모드 (확신이 낮을 때만 스스로 추론)
     mode = (REASON_MODE if REASON_MODE != "on" else True) if reason else False
     out = zoro_client.decide(Q.build_state(show, c), Q.build_questions(events, show, ask_clue), reasoning=mode)

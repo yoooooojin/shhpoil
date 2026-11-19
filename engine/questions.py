@@ -29,7 +29,14 @@ TYPE_INSTRUCTIONS = {
     "B": "이 댓글의 성격을 고르세요.",
 }
 
-EVENT_INSTRUCTIONS = "이 댓글이 아래 사건 중 어떤 것을 드러내거나 암시하나요? 돌려 말한 표현도 포함합니다. 어느 것도 아니면 '해당 없음'."
+EVENT_INSTRUCTIONS_BY_VARIANT = {
+    "A": "이 댓글이 아래 사건 중 어떤 것을 드러내거나 암시하나요? 돌려 말한 표현도 포함합니다. 어느 것도 아니면 '해당 없음'.",
+    # B: 출연자 이름만 나온 감상을 사건과 엮지 않도록 (송유진 님이 찾은 잘못 가린 글)
+    "B": ("이 댓글을 읽은 사람이 아래 사건의 결과(누가 이기고 졌는지, 진출·탈락·우승했는지)를 알게 되나요? "
+          "돌려 말한 표현도 포함합니다. 출연자 이름이 나오거나 출연자를 칭찬·응원하는 것만으로는 알게 되지 않으니 '해당 없음'입니다."),
+}
+EVENT_VARIANT = os.environ.get("EVENT_VARIANT", "A")
+EVENT_INSTRUCTIONS = EVENT_INSTRUCTIONS_BY_VARIANT.get(EVENT_VARIANT, EVENT_INSTRUCTIONS_BY_VARIANT["A"])
 
 EXTRACT_PROMPT = (
     "다음은 '{show}' 관련 댓글입니다. 이 댓글이 드러내는 방송 속 사건을 "

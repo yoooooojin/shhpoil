@@ -39,6 +39,11 @@ MAX_CHARS = int(os.environ.get("ARTICLE_MAX_CHARS", "4000"))
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"
 
 
+def pname(show):
+    """프롬프트에 쓸 작품 이름: '흑백요리사2_자동'처럼 저장용 꼬리표는 떼고 (안 떼면 Zoro가 문장에 꼬리표를 씀)"""
+    return re.sub(r"_(자동|auto|test)$", "", show)
+
+
 def fetch_text(article, show):
     if article.get("file"):
         with open(article["file"], encoding="utf-8") as f:
@@ -58,7 +63,7 @@ def fetch_text(article, show):
 
 
 def extract(show, text):
-    out = zoro_client.chat(Q.ARTICLE_PROMPT.format(show=show, text=text), max_tokens=400, first_line_only=False)
+    out = zoro_client.chat(Q.ARTICLE_PROMPT.format(show=pname(show), text=text), max_tokens=400, first_line_only=False)
     events = []
     for line in out.split("\n"):
         line = re.sub(r"^\s*([-*•·]|\d+[.)])\s*", "", line).strip().strip('"')
@@ -72,7 +77,7 @@ def learn_event(show, text, episode, source):
     existing = memory.load(show)
     if existing:
         cands = _same_candidates(existing, text)  # 선택지가 많으면 확률이 흩어져 같은 사건도 '새 사건'이 됨
-        ans = zoro_client.decide({"작품": show, "문장": text}, Q.build_same_event_question(cands))["answers"]["same"]
+        ans = zoro_client.decide({"작품": pname(show), "문장": text}, Q.build_same_event_question(cands))["answers"]["same"]
         probs = ans.get("probabilities") or {ans["choice"]: 1.0}
         best, p = max(probs.items(), key=lambda x: x[1])
         if best != "새 사건" and p >= SAME_P:
@@ -139,7 +144,7 @@ def learn_from_comment(show, text, episode, source):
     existing = memory.load(show)
     if existing:
         cands = _same_candidates(existing, text)
-        ans = zoro_client.decide({"작품": show, "문장": text}, Q.build_same_event_question(cands))["answers"]["same"]
+        ans = zoro_client.decide({"작품": pname(show), "문장": text}, Q.build_same_event_question(cands))["answers"]["same"]
         probs = ans.get("probabilities") or {ans["choice"]: 1.0}
         best, p = max(probs.items(), key=lambda x: x[1])
         if best != "새 사건" and p >= SAME_P:
@@ -175,7 +180,7 @@ def build_from_comments(show, path, until=None, min_hits=2, review_out=None, fre
     print(f"댓글 {len(rows)}개 (평가에 쓴 영상·댓글, 작성 시점 모름은 뺌)")
 
     def classify(r):
-        out = zoro_client.decide({"작품": show, "댓글": r["text"], "영상 제목": r.get("video_title") or ""},
+        out = zoro_client.decide({"작품": pname(show), "댓글": r["text"], "영상 제목": r.get("video_title") or ""},
                                  Q.HAS_RESULT_QUESTION)
         a = out["answers"]["has_result"]
         return float((a.get("probabilities") or {a["choice"]: 1.0}).get("예", 0))
@@ -186,7 +191,7 @@ def build_from_comments(show, path, until=None, min_hits=2, review_out=None, fre
     print(f"① 거르기: '실제 결과가 담겨 있다'고 본 글 {len(kept)}개 (기준 {RESULT_P})")
 
     def ext(r):
-        t = zoro_client.chat(Q.EXTRACT_WITH_TITLE_PROMPT.format(show=show, title=r.get("video_title") or "", text=r["text"]),
+        t = zoro_client.chat(Q.EXTRACT_WITH_TITLE_PROMPT.format(show=pname(show), title=r.get("video_title") or "", text=r["text"]),
                              max_tokens=64).strip().strip('"').rstrip(".")
         t = t.strip("'\" ")
         ok = (3 <= len(t) <= 30 and t not in ("없음", "해당 없음") and any(w_ in t for w_ in Q.RESULT_WORDS)
@@ -205,8 +210,8 @@ def build_from_comments(show, path, until=None, min_hits=2, review_out=None, fre
 
     def is_player(item):
         name, examples = item
-        st = {"작품": show, "이름": name, "언급된 댓글": " / ".join(x[:80] for x in examples[:3])}
-        a = zoro_client.decide(st, Q.role_question(show, name))["answers"]["role"]
+        st = {"작품": pname(show), "이름": name, "언급된 댓글": " / ".join(x[:80] for x in examples[:3])}
+        a = zoro_client.decide(st, Q.role_question(pname(show), name))["answers"]["role"]
         pr = a.get("probabilities") or {a["choice"]: 1.0}
         return name, float(pr.get("참가자", 0)) >= 0.5
 
@@ -327,7 +332,7 @@ def main():
                 continue
             name = a.get("url") or a.get("file")
             try:
-                text = fetch_text(a, show)
+                text = fetch_text(a, pname(show))
             except Exception as e:  # noqa: BLE001
                 print(f"! 기사를 못 읽음 ({e}): {name}\n  → 본문을 .txt로 저장해서 \"file\"로 넣어 주세요")
                 continue

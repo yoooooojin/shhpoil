@@ -24,6 +24,7 @@ API (README와 같음, 필드만 추가)
   p_spoiler = Σ P(성격) × 위 값.  k를 모르면 [k > w] 대신 0.5
 """
 import json
+import re
 import statistics
 from concurrent.futures import ThreadPoolExecutor
 import os
@@ -55,6 +56,12 @@ JUDGE_PARALLEL = int(os.environ.get("JUDGE_PARALLEL", "20"))
 # 1: 이름이 나온 사건만 / 0: 기억장 전체 / fallback: 이름이 나오면 그 사건만, 아무도 안 나오면 전체
 PREFILTER = os.environ.get("PREFILTER", "1")
 MAX_CANDIDATES = int(os.environ.get("MAX_CANDIDATES", "6"))
+# 단서 더 모으기: 애매한 글(확률이 이 범위)이면 에이전트가 어떤 단서를 더 볼지 골라 need_context로 요청
+CLUE_ASK = os.environ.get("CLUE_ASK", "1") == "1"
+CLUE_LOW = float(os.environ.get("CLUE_LOW", "0.3"))
+CLUE_HIGH = float(os.environ.get("CLUE_HIGH", "0.75"))
+CLUE_MIN_P = float(os.environ.get("CLUE_MIN_P", "0.15"))
+_TS = re.compile(r"\b\d{1,2}:\d{2}(?::\d{2})?\b")
 
 
 def _after(k, w, approx=False):
@@ -67,6 +74,21 @@ def _after(k, w, approx=False):
 
 def extract_event(show, text):
     return zoro_client.chat(Q.EXTRACT_PROMPT.format(show=show, text=text))
+
+
+def _need_context(c, p, ans):
+    """애매한 글이면 Zoro가 고른 단서를 확률 순으로 최대 2개. 확장이 모을 수 있다고 알려 준 것만."""
+    if not (CLUE_LOW <= p <= CLUE_HIGH):
+        return None
+    probs = (ans.get("clue") or {}).get("probabilities") or {}
+    ranked = [k_ for k_, v in sorted(probs.items(), key=lambda x: -x[1])
+              if k_ in Q.CLUES and v >= CLUE_MIN_P]
+    if _TS.search(c.get("text", "")) and "timestamp" not in ranked:
+        ranked.append("timestamp")  # 시각이 적혀 있으면 그 장면 정보는 늘 쓸모가 있다
+    avail = c.get("available_clues")  # 확장이 이 글에서 모을 수 있는 단서 (없으면 제한 안 함)
+    if avail is not None:
+        ranked = [k_ for k_ in ranked if k_ in avail]
+    return ranked[:2] or None
 
 
 def judge_one(show, w, c, reason, sync_memory):
@@ -82,7 +104,9 @@ def judge_one(show, w, c, reason, sync_memory):
             events = cands
 
     tz = time.time()
-    out = zoro_client.decide(Q.build_state(show, c), Q.build_questions(events, show), reasoning=reason)
+    has_clues = bool(c.get("clues"))
+    ask_clue = CLUE_ASK and not has_clues
+    out = zoro_client.decide(Q.build_state(show, c), Q.build_questions(events, show, ask_clue), reasoning=reason)
     zoro_ms = (time.time() - tz) * 1000
     ans = out["answers"]
     t = ans["type"]
@@ -133,6 +157,8 @@ def judge_one(show, w, c, reason, sync_memory):
         # ---- 아래는 추가 필드 (확장이 안 써도 됨)
         "type_probs": {name: round(v, 4) for name, v in ptype.items()},
         "reason_brief": (out.get("reasoning") or "")[:80] or None,
+        "need_context": _need_context(c, p, ans) if ask_clue else None,
+        "used_clues": sorted(k_ for k_, v in c["clues"].items() if v) if has_clues else None,
         "memory_update": memory_update,
         "latency_ms": round((time.time() - t0) * 1000, 1),
         "timing": {"zoro_calls": 1, "zoro_ms": round(zoro_ms, 1), "n_event_options": len(events),

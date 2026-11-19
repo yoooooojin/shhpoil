@@ -361,8 +361,8 @@
   // 배지에 바로 보이는 짧은 이유
   function shortWhy(r) {
     const ep = episodeOf(r);
-    if (!isAhead(r)) return ep ? `이미 본 ${ep}화 내용` : "";
-    return [r.type, `${Math.round(r.p_spoiler * 100)}%`, ep != null ? `${ep}화 내용` : "", r.reasoned ? "추론" : ""]
+    if (!isAhead(r)) return ep ? `이미 본 ${ep}화 내용이라 그대로 뒀어요` : "";
+    return [ep != null ? `${ep}화 내용` : "", `${r.type} ${Math.round(r.p_spoiler * 100)}%`, r.reasoned ? "다시 생각함" : ""]
       .filter(Boolean)
       .join(" · ");
   }
@@ -421,47 +421,43 @@
 
   function addBadge(el, id, status) {
     const s = state.get(id);
-    const b = document.createElement("div");
-    b.className = "bdk-badge";
+    const hidden = status === "hide" || status === "blur";
+    const b = h("div", { class: `bdk-badge bdk-b-${status}${s.revealed ? " bdk-b-open" : ""}` });
     b.dataset.for = id;
     // 유튜브는 Trusted Types 보안 정책 때문에 innerHTML을 막아서, 요소를 하나씩 만들어 붙임
-    const label = (s.kind === "video" ? { hide: "제목 스포 가림", blur: "제목 스포 의심" } : { hide: "스포 가림", blur: "스포 의심" })[status];
-    if (label) b.append(h("span", { class: `bdk-label bdk-${status}` }, label));
-    // 짧은 이유: 가린 글엔 항상, 보이는 글엔 "이미 본 N화 내용"일 때만 (나머지는 ⓘ에)
-    if (s.short && (label || s.short.startsWith("이미 본")))
+    const video = s.kind === "video";
+    if (hidden) {
+      const label = s.revealed
+        ? "스포일 수 있는 글을 열어 봤어요"
+        : status === "hide"
+          ? video ? "스포 제목이라 가렸어요" : "스포라서 가렸어요"
+          : video ? "스포일 수 있는 제목" : "스포일 수 있어서 흐려 뒀어요";
+      const head = h("div", { class: "bdk-head" });
+      head.append(h("span", { class: "bdk-icon" }, "🤫"), h("span", { class: "bdk-title" }, label));
+      if (s.short) head.append(h("span", { class: "bdk-reason" }, s.short));
+      b.append(head);
+    } else if (s.short) {
       b.append(h("span", { class: "bdk-reason" }, s.short));
-    if (status === "hide" || status === "blur") {
-      b.append(
-        s.revealed
-          ? h("button", { "data-act": "rehide" }, "다시 가리기")
-          : h("button", { "data-act": "reveal" }, "보기"),
+    }
+    const acts = h("div", { class: "bdk-acts" });
+    if (hidden) {
+      acts.append(
+        s.revealed ? h("button", { "data-act": "rehide" }, "다시 가리기") : h("button", { "data-act": "reveal", class: "bdk-primary" }, "보기"),
         h("button", { "data-act": "notspoiler" }, "스포 아님"),
       );
+    } else if (status === "show") {
+      acts.append(h("button", { "data-act": "wasspoiler" }, "스포였어요"));
     }
-    if (status === "show")
-      b.append(
-        h(
-          "button",
-          { "data-act": "wasspoiler", class: "bdk-quiet" },
-          "스포였음",
-        ),
-      );
     const open = status === "show" || status === "error" || s.revealed;
     const why = (open ? s.whyFull : s.whySafe) || "";
-    b.append(h("button", { class: "bdk-why", "data-act": "why", title: "판단 이유 보기" }, s.whyOpen ? "ⓘ 닫기" : "ⓘ"));
+    if (why) acts.append(h("button", { "data-act": "why" }, s.whyOpen ? "이유 닫기" : "왜?"));
     const cmp = compareTag(s);
-    if (cmp)
-      b.append(
-        h(
-          "span",
-          { class: `bdk-cmp bdk-cmp-${cmp}` },
-          cmp === "miss" ? "키워드였다면 놓침" : "키워드였다면 괜히 가림",
-        ),
-      );
-    // ⓘ를 누르면 판단 이유를 한 줄로 펼침 (가린 글은 사건 내용 없이)
+    if (cmp) acts.append(h("span", { class: `bdk-cmp bdk-cmp-${cmp}` }, cmp === "miss" ? "키워드였다면 놓침" : "키워드였다면 괜히 가림"));
+    b.append(acts);
+    // "왜?"를 누르면 판단 이유를 펼침 (가린 글은 사건 내용 없이)
     if (s.whyOpen && why) b.append(h("div", { class: "bdk-detail" }, why));
     b.addEventListener("click", (e) => {
-      const act = e.target?.dataset?.act;
+      const act = e.target?.closest?.("[data-act]")?.dataset?.act;
       if (!act) return;
       e.preventDefault();
       e.stopPropagation();
@@ -633,6 +629,8 @@
     }
     if (!force && cur.vid === guard.vid) return;
     hideGuard();
+    guard.status = "지금 영상 확인 중…";
+    refreshCounts();
     if (guard.passed && !guard.dismissed.has(`${cur.vid}@${settings.watchedEpisode}`)) guard.passed = null;
     guard.vid = cur.vid;
     // 페이지를 막 열었거나 영상이 바뀐 직후엔 제목이 없거나 이전 영상 것이라, 바뀔 때까지 기다림 (최대 10초)
@@ -640,10 +638,16 @@
       await new Promise((r) => setTimeout(r, 200));
       cur = currentVideo();
     }
-    if (!cur || cur.vid !== guard.vid || !cur.title) return;
+    if (!cur || cur.vid !== guard.vid || !cur.title) {
+      guard.status = "지금 영상 제목을 못 읽었어요";
+      return refreshCounts();
+    }
     guard.title = cur.title;
     guard.titleVid = cur.vid;
-    if (guard.dismissed.has(`${cur.vid}@${settings.watchedEpisode}`)) return;
+    if (guard.dismissed.has(`${cur.vid}@${settings.watchedEpisode}`)) {
+      guard.status = null;
+      return refreshCounts();
+    }
 
     let posted = cur.posted;
     if (!cur.exact) {
@@ -657,7 +661,10 @@
       const hit = keywordHit(cur.title, fallback);
       return hit ? { ep: null, why: `${fallback ? "판단 엔진 연결 끊김 → 키워드로 대체 · " : ""}키워드 "${hit}" 포함` } : null;
     };
-    if (settings.mode === "keyword") verdict = kw(false);
+    if (settings.mode === "keyword") {
+      verdict = kw(false);
+      guard.status = `지금 영상: 키워드 모드 → ${verdict ? "경고" : "문제 없음"}`;
+    }
     else {
       const res = await new Promise((resolve) =>
         chrome.runtime.sendMessage(
@@ -673,13 +680,19 @@
         ),
       );
       const r = res?.ok && res.data.results?.[0];
-      if (!r) verdict = kw(true);
-      else {
+      if (!r) {
+        verdict = kw(true);
+        guard.status = `지금 영상: 판단 엔진 응답 없음 → 키워드로 ${verdict ? "스포" : "문제 없음"}`;
+      } else {
         const T = Math.min(0.95, Math.max(0.05, baseThreshold() + (settings.typeOffsets[r.type] || 0)));
-        if (isAhead(r) && r.p_spoiler >= T) verdict = { ep: episodeOf(r), why: buildWhy(r, T, true) };
+        const ep = episodeOf(r);
+        if (isAhead(r) && r.p_spoiler >= T) verdict = { ep, why: buildWhy(r, T, true) };
+        guard.status = `지금 영상: ${r.type} ${Math.round(r.p_spoiler * 100)}% (기준 ${Math.round(T * 100)}%)${ep != null ? ` · ${ep}화` : ""} → ${verdict ? "경고" : isAhead(r) ? "기준 아래라 그대로" : "이미 본 내용"}`;
       }
+      console.log("[쉿스포]", guard.status, "| 제목:", cur.title, "| 업로드:", posted);
     }
     if (guard.vid !== cur.vid) return; // 기다리는 사이 다른 영상으로 넘어감
+    refreshCounts();
     if (verdict) showGuard(cur, verdict);
   }
 
@@ -947,6 +960,7 @@
       hud.append(box);
     }
 
+    if (settings.guardVideo && guard.status && urlVideoId()) hud.append(h("div", { class: "bdk-hud-line bdk-hud-sub" }, `🎬 ${guard.status}`));
     if (guard.passed && guard.passed === urlVideoId() && !guard.overlay) {
       const line = h("div", { class: "bdk-hud-line" }, "지금 영상은 스포 경고를 넘기고 보는 중 ");
       line.append(h("button", { "data-act": "reguard" }, "다시 가리기"));

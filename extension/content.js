@@ -839,6 +839,19 @@
       return refreshCounts();
     }
 
+    // 목록에서 이 영상 카드에 직접 "스포였어요 / 스포 아님"을 눌렀으면 그 결정을 그대로 따름
+    const ov = activeOverride(`v:${cur.vid}`) || activeOverride(`cur:${cur.vid}`);
+    if (ov) {
+      const hideIt = ov === "hide" || ov === "blur";
+      guard.status = `지금 영상: 직접 "${hideIt ? "스포였어요" : "스포 아님"}"로 정한 영상 → ${hideIt ? "경고" : "그대로 재생"}`;
+      trace(hideIt ? "행동" : "판단", hideIt ? "직접 스포로 신고한 영상 → 일시정지하고 경고" : "직접 스포 아님으로 정한 영상 → 그대로 재생", {
+        id: `cur:${cur.vid}`, kind: "current-video", result: guard.status, title: raw(cur.title),
+      });
+      refreshCounts();
+      if (hideIt) showGuard(cur, { ep: null, why: '이 영상 카드에 직접 "스포였어요"를 누르셨어요' });
+      return;
+    }
+
     let posted = cur.posted;
     if (!cur.exact) {
       const yt = sites.find((s) => s.name === "youtube-videos");

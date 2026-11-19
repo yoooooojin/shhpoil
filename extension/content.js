@@ -232,7 +232,7 @@
         engineDown(true);
         ids.forEach((id) => applyKeyword(id, true));
       } else {
-        engineDown(false);
+        engineDown(false, "새 글 판정 성공");
         stats.lastMs = res.ms;
         trace("판단", "Zoro-1 판정 받음", {
           count: res.data.results.length,
@@ -351,7 +351,7 @@
   // ---------------------------------------------------------------- 오류 대응: 엔진 끊김 → 키워드 대체 → 자동 복귀
   let down = false;
   let healthTimer = null;
-  function engineDown(isDown) {
+  function engineDown(isDown, how = "") {
     if (down === isDown) return;
     down = isDown;
     clearInterval(healthTimer);
@@ -362,19 +362,20 @@
       healthTimer = setInterval(() => {
         chrome.runtime.sendMessage({ type: "health" }, (res) => {
           if (chrome.runtime.lastError || !res?.ok || !down) return;
-          engineDown(false);
-          toast("판단 엔진 복구 → 다시 판정 모드로");
-          // 키워드로 대신 처리했던 댓글만 다시 판단
-          let n = 0;
-          for (const [id, s] of state)
-            if (s.fallback) {
-              s.fallback = false;
-              enqueue(id);
-              n++;
-            }
-          trace("복구", "엔진 다시 응답 → 키워드로 대신했던 글 다시 판정", { count: n });
+          engineDown(false, "5초 확인");
         });
       }, 5000);
+    } else {
+      // 5초 확인이 먼저든, 새 글 판정이 먼저 성공했든 복구는 한 번 기록하고 키워드로 대신했던 글을 다시 판단
+      toast("판단 엔진 복구 → 다시 판정 모드로");
+      let n = 0;
+      for (const [id, s] of state)
+        if (s.fallback) {
+          s.fallback = false;
+          enqueue(id);
+          n++;
+        }
+      trace("복구", "엔진 다시 응답 → 키워드로 대신했던 글 다시 판정", { count: n, how });
     }
     refreshCounts();
   }

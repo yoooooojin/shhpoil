@@ -194,6 +194,22 @@ function pendingNote(s) {
   const left = s.clueAsked - s.clueJudged - s.clueFailed - s.clueCancelled;
   return (s.clueCancelled ? ` · 취소 ${s.clueCancelled}` : "") + (left > 0 ? ` · 기록 끝날 때 아직 대기 ${left}` : "");
 }
+// 끊긴 구간 세기: 탭마다(페이지를 새로 열면 다시) 끊김을 감지하므로, 끊긴 탭이 하나라도 있는 동안을 한 구간으로 봄
+function outagePeriods(log) {
+  const downTabs = new Set();
+  let periods = 0, closed = 0;
+  for (const e of log) {
+    if (e.stage === "오류" && e.event.startsWith("엔진 끊김")) {
+      if (!downTabs.size) periods++;
+      downTabs.add(e.tab);
+    } else if (e.stage === "복구") {
+      const had = downTabs.size;
+      downTabs.delete(e.tab);
+      if (had && !downTabs.size) closed++;
+    }
+  }
+  return { outagePeriods: periods, outageClosed: closed, outageTabs: new Set(log.filter((e) => e.stage === "오류" && e.event.startsWith("엔진 끊김")).map((e) => e.tab)).size };
+}
 function logSummary(log) {
   const by = (st) => log.filter((e) => e.stage === st);
   const judged = by("판단").filter((e) => e.event.startsWith("Zoro-1"));
@@ -224,6 +240,7 @@ function logSummary(log) {
     clueFailed: errs.filter((e) => e.event.startsWith("단서 보고")).length,
     reaskFailed: errs.filter((e) => e.event.startsWith("추론 모드")).length,
     outages: errs.filter((e) => e.event.startsWith("엔진 끊김")).length,
+    ...outagePeriods(log),
     hidden: count("가림"),
     blurred: acts.filter((e) => e.event.startsWith("흐리게")).length,
     shown: count("그대로 보임"),
@@ -365,7 +382,7 @@ function toMarkdown(log) {
     `| 행동: 가림 · 흐림 · 그대로 | ${s.hidden} · ${s.blurred} · ${s.shown} |`,
     `| 행동: 영상 경고 · 미리보기 막음 | ${s.guard} · ${s.preview} |`,
     `| 학습: 사용자 반응 · 기억장 | ${s.learned} |`,
-    `| 엔진 끊김 → 자동 복구 | ${s.outages}번 → ${s.recovered}번 (오류 기록 ${s.errors}줄: 끊긴 동안의 요청 실패 포함) |`,
+    `| 엔진 끊김 → 자동 복구 | 끊긴 구간 ${s.outagePeriods}번 → 복구 ${s.outageClosed}번 (탭 ${s.outageTabs}개에서 감지 ${s.outages}번 · 복구 기록 ${s.recovered}번 · 끊긴 동안 요청 실패 포함 오류 ${s.errors}줄) |`,
     "",
     "## 흐름",
     "",

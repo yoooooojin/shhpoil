@@ -99,7 +99,9 @@
       const known = state.get(id);
       if (known) {
         // 같은 글인데 화면 요소가 새로 그려진 경우 (유튜브, 시연 페이지 탭 전환): 결과를 다시 입힘
-        if (known.el !== el) {
+        // X(React)는 같은 요소를 두고 class를 통째로 다시 쓰거나 본문만 새로 그려서, 붙여 둔 표시가 지워진 경우도 다시 입힘
+        const wiped = !el.classList.contains("bdk-item") || (site.blurTarget && site.blurTarget(el) && !site.blurTarget(el).classList.contains("bdk-target"));
+        if (known.el !== el || wiped) {
           known.el = el;
           markItem(el, site);
           if (["hide", "blur", "show", "error"].includes(known.status))
@@ -172,6 +174,17 @@
       scan();
     }, 400);
   }).observe(document.body, { childList: true, subtree: true });
+  // X는 글 요소의 class만 바꿔 써서(자식 추가 없이) 표시가 지워질 때가 있음 → 우리가 본 글의 class가 바뀌면 다시 훑기
+  if (sites.some((s) => s.cls)) {
+    new MutationObserver((muts) => {
+      if (scanTimer) return;
+      if (!muts.some((m) => m.target.dataset?.bdkId && !m.target.classList.contains("bdk-item"))) return;
+      scanTimer = setTimeout(() => {
+        scanTimer = null;
+        scan();
+      }, 100);
+    }).observe(document.body, { attributes: true, attributeFilter: ["class"], subtree: true });
+  }
 
   function enqueue(id) {
     queue.add(id);

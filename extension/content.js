@@ -23,7 +23,7 @@
     sensitivity: 0.5, // 0: 확실한 스포만 ~ 1: 조금이라도 의심되면
     keywords: "흑백요리사,최강록,우승,탈락",
     typeOffsets: {}, // 학습 결과: 글 종류별 기준 보정값
-    overrides: {}, // 사용자가 직접 판정한 댓글: { 댓글id: "show" | "hide" } (새로고침해도 유지)
+    overrides: {}, // 사용자가 직접 판정한 댓글: { 댓글id: { decision: "show" | "hide", ep: 누른 때의 본 회차 } }
   };
   // 저장만 바뀌고 화면 전체를 다시 판단할 필요는 없는 설정
   const LEARNING_KEYS = ["typeOffsets", "overrides"];
@@ -226,10 +226,22 @@
     return r.written_after_episode > w;
   }
 
+  // 사용자가 직접 판정한 결정이 지금 본 회차에서도 유효한가
+  //  - "스포 아님"(N화까지 보고 누름): N화 이상 봤을 때만 유효. 그보다 앞으로 돌리면 다시 판단
+  //  - "스포였음"(N화까지 보고 누름): N화 이하일 때만 유효. 더 보고 나면 다시 판단
+  function activeOverride(id) {
+    const o = settings.overrides?.[id];
+    if (!o) return null;
+    if (typeof o === "string") return o; // 예전 형식 (회차 정보 없음)
+    const w = settings.watchedEpisode;
+    if (o.decision === "show") return w >= o.ep ? "show" : null;
+    return w <= o.ep ? "hide" : null;
+  }
+
   function decide(id) {
     const s = state.get(id);
     // 사용자가 직접 "스포 아님 / 스포였음"을 누른 댓글은 그 결정을 그대로 따름
-    const override = settings.overrides?.[id];
+    const override = activeOverride(id);
     if (override) return setStatus(id, override);
     const r = s.result;
     const offset = settings.typeOffsets[r.type] || 0;
@@ -270,7 +282,7 @@
   function applyKeyword(id, fallback = false) {
     const s = state.get(id);
     s.fallback = fallback;
-    const override = settings.overrides?.[id];
+    const override = activeOverride(id);
     if (override) return setStatus(id, override);
     const words = settings.keywords
       .split(",")
@@ -384,7 +396,10 @@
     }
     // 사용자의 직접 결정은 이 댓글에 고정하고 저장 (회차 변경·새로고침에도 유지)
     const decision = act === "notspoiler" ? "show" : "hide";
-    settings.overrides = { ...(settings.overrides || {}), [id]: decision };
+    settings.overrides = {
+      ...(settings.overrides || {}),
+      [id]: { decision, ep: settings.watchedEpisode },
+    };
     s.revealed = false;
     setStatus(id, decision);
 

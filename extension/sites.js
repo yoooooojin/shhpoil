@@ -60,8 +60,18 @@ window.BDK_SITES = [
       const iso = window.BDK_parseRelative(label);
       return iso ? { iso, exact: false } : null; // 대략값 → resolveTimes로 정확한 값 요청
     },
-    context: (_el) =>
-      document.querySelector("ytd-watch-metadata h1, h1.ytd-watch-metadata, #title h1")?.textContent?.trim() || "",
+    // 영상 제목 + (답글이면) 원댓글. 판단 엔진에는 "제목\n원댓글: …" 형태의 글자로 전달됨
+    context: (el) => {
+      const title =
+        document.querySelector("ytd-watch-metadata h1, h1.ytd-watch-metadata, #title h1")?.textContent?.trim() || "";
+      if (!el.closest("ytd-comment-replies-renderer")) return title;
+      const thread = el.closest("ytd-comment-thread-renderer");
+      const parent = [...(thread?.querySelectorAll("ytd-comment-view-model, ytd-comment-renderer") || [])].find(
+        (c) => !c.closest("ytd-comment-replies-renderer")
+      );
+      const text = parent?.querySelector("#content-text")?.textContent?.trim().slice(0, 300);
+      return text ? `${title}\n원댓글: ${text}` : title;
+    },
     blurTarget: (el) => el.querySelector("#expander") || el.querySelector("#content-text"),
     badgeHost: (el) => el.querySelector("#main") || null,
     resolveTimes: (ids) =>

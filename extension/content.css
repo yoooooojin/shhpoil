@@ -41,3 +41,4 @@
   content: attr(data-toast); display: block; margin-top: 6px; padding-top: 6px;
   border-top: 1px solid rgba(255,255,255,.2); color: #ffd36b;
 }
+.bdk-hud .bdk-warn { color: #ffb38a; font-weight: 600; }

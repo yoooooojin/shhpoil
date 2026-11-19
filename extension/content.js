@@ -145,10 +145,12 @@
       await resolveTimes(ids);
       const res = await judge(ids, false);
       if (!res?.ok) {
-        // 실패하면 열어 둠 (화면을 막아버리지 않기)
-        ids.forEach((id) => setStatus(id, "error"));
-        console.warn("[쉿스포] 판단 엔진 연결 실패:", res?.error);
+        // 판단 엔진이 죽거나 느리면: 키워드 방식으로 대신 가리고, 엔진이 살아나면 다시 판단
+        console.warn("[쉿스포] 판단 엔진 연결 실패 → 키워드 모드로 대체:", res?.error);
+        ids.forEach((id) => applyKeyword(id, true));
+        engineDown(true);
       } else {
+        engineDown(false);
         stats.lastMs = res.ms;
         for (const r of res.data.results) {
           const s = state.get(r.id);
@@ -181,6 +183,33 @@
     }
   }
 
+  // ---------------------------------------------------------------- 오류 대응: 엔진 끊김 → 키워드 대체 → 자동 복귀
+  let down = false;
+  let healthTimer = null;
+  function engineDown(isDown) {
+    if (down === isDown) return;
+    down = isDown;
+    clearInterval(healthTimer);
+    if (isDown) {
+      toast("판단 엔진 연결 끊김 → 키워드 모드로 대체 중");
+      // 5초마다 엔진이 살아났는지 확인
+      healthTimer = setInterval(() => {
+        chrome.runtime.sendMessage({ type: "health" }, (res) => {
+          if (chrome.runtime.lastError || !res?.ok || !down) return;
+          engineDown(false);
+          toast("판단 엔진 복구 → 다시 판정 모드로");
+          // 키워드로 대신 처리했던 댓글만 다시 판단
+          for (const [id, s] of state)
+            if (s.fallback) {
+              s.fallback = false;
+              enqueue(id);
+            }
+        });
+      }, 5000);
+    }
+    refreshCounts();
+  }
+
   // ---------------------------------------------------------------- 행동 결정
   function baseThreshold() {
     // 민감도 0 → 0.85 (확실한 것만), 1 → 0.30 (조금만 의심돼도)
@@ -208,7 +237,8 @@
 
     s.why = buildWhy(r, p, T) + (s.timeExact ? "" : " · 작성 시각 추정");
 
-    if (Math.abs(p - T) < 0.1 && !r.reasoned && isAhead(r)) {
+    // 다시 묻기는 댓글당 한 번만 (서버가 reasoned를 안 넣어 줘도 무한 반복하지 않게)
+    if (Math.abs(p - T) < 0.1 && !r.reasoned && !s.reasked && isAhead(r)) {
       // 애매함 → 일단 흐려 두고 추론 모드로 다시 묻기
       setStatus(id, "blur");
       reask(id);
@@ -220,24 +250,30 @@
   }
 
   async function reask(id) {
+    const s = state.get(id);
+    s.reasked = true;
+    const round = s.round; // 기다리는 동안 설정이 바뀌어 다시 판단이 시작됐으면 이 응답은 버림
     const res = await judge([id], true);
-    if (!res?.ok) return;
-    const r = res.data.results[0];
-    if (!r) return;
+    if (s.round !== round) return;
+    const r = res?.ok && res.data.results.find((x) => x.id === id);
+    if (!r) return decide(id); // 실패하면 첫 판단 결과로 결정 (흐린 채로 멈추지 않게)
     stats.reasoned++;
-    state.get(id).result = r;
+    s.result = r;
     decide(id);
   }
 
-  function applyKeyword(id) {
+  function applyKeyword(id, fallback = false) {
     const s = state.get(id);
+    s.fallback = fallback;
+    const override = settings.overrides?.[id];
+    if (override) return setStatus(id, override);
     const words = settings.keywords
       .split(",")
       .map((w) => w.trim())
       .filter(Boolean);
     const hit = words.find((w) => s.text.includes(w));
     s.result = null;
-    s.why = hit ? `키워드 "${hit}" 포함` : "키워드 없음";
+    s.why = (fallback ? "판단 엔진 연결 끊김 → 키워드로 대체 · " : "") + (hit ? `키워드 "${hit}" 포함` : "키워드 없음");
     setStatus(id, hit ? "hide" : "show");
   }
 
@@ -374,6 +410,8 @@
       h("br"),
       `가림 ${hidden} · 의심 ${blurred} · 추론 ${stats.reasoned}${stats.lastMs ? ` · 응답 ${stats.lastMs}ms` : ""}`,
     );
+    if (down && settings.mode !== "keyword")
+      hud.append(h("br"), h("span", { class: "bdk-warn" }, "⚠ 판단 엔진 연결 끊김 → 키워드로 대체 중"));
   }
 
   // 작은 요소 생성 도우미 (innerHTML 대신)
@@ -398,6 +436,8 @@
     queue.clear();
     for (const [id, s] of state) {
       s.result = null;
+      s.reasked = false;
+      s.round = (s.round || 0) + 1;
       s.status = "new";
       s.el.classList.remove("bdk-hide", "bdk-blur", "bdk-show", "bdk-revealed");
       badgeOf(s.el, id)?.remove();

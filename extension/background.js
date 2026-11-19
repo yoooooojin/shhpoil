@@ -10,7 +10,7 @@ const DEFAULTS = { serverUrl: "http://localhost:8787", ytApiKey: "" };
 const ytTimeCache = new Map(); // 댓글 번호 → ISO (한 번 물어본 건 다시 안 물어봄)
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  const handler = { judge: handleJudge, ytCommentTimes: handleYtTimes }[msg.type];
+  const handler = { judge: handleJudge, ytCommentTimes: handleYtTimes, health: handleHealth }[msg.type];
   if (!handler) return false;
   handler(msg)
     .then((res) => sendResponse({ ok: true, ...res }))
@@ -18,17 +18,37 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   return true; // 비동기 응답
 });
 
+// 판단 엔진이 이 시간 안에 답하지 않으면 실패로 처리 (현장에서 Zoro 속도를 보고 조정)
+const JUDGE_TIMEOUT_MS = 10_000; // 일반 판정: 댓글 최대 20개
+const REASON_TIMEOUT_MS = 20_000; // 추론 모드: 댓글 1개
+
 async function handleJudge(msg) {
   const { serverUrl } = await chrome.storage.local.get(DEFAULTS);
   const url = `${serverUrl.replace(/\/$/, "")}/judge${msg.reason ? "?reason=true" : ""}`;
+  const limit = msg.reason ? REASON_TIMEOUT_MS : JUDGE_TIMEOUT_MS;
   const t0 = Date.now();
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(msg.payload),
-  });
+  let res;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(msg.payload),
+      signal: AbortSignal.timeout(limit),
+    });
+  } catch (e) {
+    if (e.name === "TimeoutError") throw new Error(`판단 엔진 응답 시간 초과 (${limit / 1000}초)`);
+    throw e;
+  }
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return { data: await res.json(), ms: Date.now() - t0 };
+}
+
+// 판단 엔진이 살아 있는지 (끊겼을 때 복구 확인용)
+async function handleHealth() {
+  const { serverUrl } = await chrome.storage.local.get(DEFAULTS);
+  const res = await fetch(`${serverUrl.replace(/\/$/, "")}/health`, { signal: AbortSignal.timeout(3000) });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return {};
 }
 
 // comments.list는 댓글 번호를 한 번에 최대 50개까지 받고, 요청 1번에 할당량 1을 씀

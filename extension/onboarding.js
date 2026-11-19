@@ -2,7 +2,7 @@
 const $ = (id) => document.getElementById(id);
 const steps = [...document.querySelectorAll(".step")];
 const dots = [...document.querySelectorAll(".dots i")];
-const pick = { show: "흑백요리사2", ep: 3, sensitivity: 0.5 };
+const pick = { show: "흑백요리사2", ep: 3, sensitivity: 0.7 };
 let at = 0;
 
 // 이미 설정이 있으면 그 값으로 시작 ("처음 안내 다시 보기")
@@ -55,7 +55,7 @@ $("back").addEventListener("click", () => go(at - 1));
 $("next").addEventListener("click", () => {
   if (at === steps.length - 2) {
     chrome.storage.local.set({ show: pick.show, watchedEpisode: pick.ep, sensitivity: pick.sensitivity, enabled: true, onboarded: true });
-    const level = { 0.4: "확실한 것만", 0.5: "보통", 0.7: "꼼꼼히" }[pick.sensitivity] || "보통";
+    const level = { 0.4: "확실한 것만", 0.5: "보통", 0.7: "꼼꼼히" }[pick.sensitivity] || "꼼꼼히";
     $("summary").textContent = `${pick.show} · ${pick.ep}화까지 봄 · ${level}`;
     $("goYoutube").href = `https://www.youtube.com/results?search_query=${encodeURIComponent(pick.show)}`;
   }

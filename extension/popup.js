@@ -3,7 +3,7 @@ const DEFAULTS = {
   mode: "zoro",
   show: "흑백요리사2",
   watchedEpisode: 3,
-  sensitivity: 0.5,
+  sensitivity: 0.7,
   keywords: "흑백요리사,최강록,우승,탈락",
   serverUrl: "http://localhost:8787",
   ytApiKey: "",

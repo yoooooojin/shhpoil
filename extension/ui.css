@@ -1,0 +1,33 @@
+/* 팝업 · 첫 설치 안내가 같이 쓰는 스타일 */
+:root {
+  --ink: #1d1d1f; --sub: #6b6b70; --line: #e6e6e9; --card: #f6f5f2; --bg: #fff;
+  --accent: #ffc83d; --accent-ink: #b45309; --dark: #1e1f24;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 13px/1.5 -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+label { display: block; margin: 10px 0 5px; font-weight: 600; font-size: 12px; }
+input[type=text], input[type=number] { width: 100%; padding: 7px 8px; border: 1px solid #d4d4d8; border-radius: 8px; font: inherit; background: #fff; }
+input[type=range] { width: 100%; }
+.row { display: flex; justify-content: space-between; font-size: 11px; color: var(--sub); }
+.small { font-size: 11px; color: var(--sub); }
+button.link { border: 0; background: none; color: #3a5bd9; cursor: pointer; padding: 0; font-size: 11px; }
+
+.seg { display: flex; border: 1px solid #d4d4d8; border-radius: 10px; overflow: hidden; }
+.seg button { flex: 1; border: 0; background: #fff; padding: 7px 4px; cursor: pointer; font: inherit; }
+.seg button + button { border-left: 1px solid #e4e4e7; }
+.seg button.on { background: var(--dark); color: #fff; }
+
+.stepper { display: flex; align-items: center; gap: 8px; }
+.stepper > button { width: 38px; height: 38px; border-radius: 50%; border: 1px solid #d4d4d8; background: #fff; font-size: 18px; cursor: pointer; }
+.stepper > button:hover { background: var(--card); }
+.stepper .ep { flex: 1; display: flex; align-items: baseline; justify-content: center; gap: 4px; }
+.stepper .ep input { width: 58px; text-align: center; font-size: 22px; font-weight: 700; border: 0; border-bottom: 2px solid var(--accent); border-radius: 0; padding: 2px; }
+
+label.switch { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+.toggle { position: relative; width: 40px; height: 22px; margin: 0; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle span { position: absolute; inset: 0; background: #ccc; border-radius: 99px; transition: .2s; cursor: pointer; }
+.toggle span::after { content: ""; position: absolute; left: 3px; top: 3px; width: 16px; height: 16px; background: #fff; border-radius: 50%; transition: .2s; }
+.toggle input:checked + span { background: #22a06b; }
+.toggle input:checked + span::after { transform: translateX(18px); }

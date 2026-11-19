@@ -33,7 +33,7 @@
   // 저장만 바뀌고 화면 전체를 다시 판단할 필요는 없는 설정
   const LEARNING_KEYS = ["typeOffsets", "overrides"];
   // 다시 판단할 필요 없이 화면 표시만 바뀌는 설정
-  const DISPLAY_KEYS = ["compare", "batchSize", "timeoutSec", "feedbackLog"];
+  const DISPLAY_KEYS = ["compare", "batchSize", "timeoutSec", "feedbackLog", "stats", "hudPos", "onboarded"];
 
   let settings = { ...DEFAULTS };
   const state = new Map(); // id → { el, text, postedAt, result, status }
@@ -383,6 +383,8 @@
   }
 
   // ---------------------------------------------------------------- 화면
+  let blockedPending = 0,
+    blockedTimer = null;
   function setStatus(id, status) {
     const s = state.get(id);
     s.status = status;
@@ -402,6 +404,16 @@
       return;
     }
     el.classList.add(status === "hide" ? "bdk-hide" : "bdk-blur");
+    if (!s.counted) {
+      // 오늘 막은 스포 수 (글마다 한 번만, 1초씩 모아서 보냄)
+      s.counted = true;
+      blockedPending++;
+      blockedTimer ||= setTimeout(() => {
+        chrome.runtime.sendMessage({ type: "blocked", count: blockedPending }).catch?.(() => {});
+        blockedPending = 0;
+        blockedTimer = null;
+      }, 1000);
+    }
     if (s.revealed) el.classList.add("bdk-revealed"); // "보기"로 열어 둔 건 다시 판단돼도 열린 채로
     addBadge(el, id, status);
     refreshCounts();
@@ -474,6 +486,9 @@
     // 사용자의 직접 결정은 이 댓글에 고정하고 저장 (회차 변경·새로고침에도 유지)
     const decision = act === "notspoiler" ? "show" : "hide";
     logFeedback(s, act); // 판단 엔진 개선용 기록 (팝업에서 CSV로 내려받기)
+    // 아직 안 본 회차 내용을 "스포 아님"이라고 했다면 → 그 회차까지 본 건 아닐까? 먼저 물어봄
+    if (act === "notspoiler" && s.result && isAhead(s.result))
+      suggestEpisode(episodeOf(s.result), `${episodeOf(s.result)}화 내용을 "스포 아님"으로 하셨네요`);
     settings.overrides = {
       ...(settings.overrides || {}),
       [id]: { decision, ep: settings.watchedEpisode },
@@ -532,7 +547,7 @@
     if (id) e.ids.add(id);
     if (fresh) {
       e.freshUntil = Date.now() + 20_000;
-      memOpen = true; // 새 사건이 들어오면 패널을 펼쳐서 보여줌
+      memOpen = hudOpen = true; // 새 사건이 들어오면 상태창과 패널을 펼쳐서 보여줌
       setTimeout(refreshCounts, 20_500);
     }
   }
@@ -720,6 +735,27 @@
     guard.titleEl = null;
   }
 
+  // ---------------------------------------------------------------- 새 회차 공개 알림 (방영 중인 작품)
+  // 최근 2주 안에 새 회차가 공개됐는데 아직 그 전 회차로 설정돼 있으면 "보셨나요?"라고 먼저 물어봄
+  const SCHEDULES = {
+    흑백요리사2: [
+      ["2025-12-16T17:00:00+09:00", 3],
+      ["2025-12-23T17:00:00+09:00", 7],
+      ["2025-12-30T17:00:00+09:00", 10],
+      ["2026-01-06T17:00:00+09:00", 12],
+      ["2026-01-13T17:00:00+09:00", 13],
+    ],
+  };
+  function checkNewEpisode() {
+    const drops = SCHEDULES[settings.show] || [];
+    const now = Date.now();
+    const recent = drops.filter(([t]) => now >= Date.parse(t) && now - Date.parse(t) < 14 * 864e5).pop();
+    if (recent && recent[1] > settings.watchedEpisode) {
+      const d = new Date(recent[0]);
+      suggestEpisode(recent[1], `${d.getMonth() + 1}/${d.getDate()}에 ${recent[1]}화까지 공개됐어요`);
+    }
+  }
+
   // ---------------------------------------------------------------- 피드백 기록 (잘못 판단한 글 모으기)
   // 사용자가 "스포 아님 / 스포였음"을 누른 글과 그때 Zoro의 판단을 남김 → 팝업에서 CSV로 받아 판단 엔진 개선에 씀
   async function logFeedback(s, act) {
@@ -775,14 +811,77 @@
   }
 
   // ---------------------------------------------------------------- 상태 표시
+  // 평소엔 작은 알약(🤫 3)으로 접혀 있다가 누르면 펼쳐짐. 끌어서 옮길 수 있고 위치는 기억함
   const hud = document.createElement("div");
   hud.className = "bdk-hud";
   document.documentElement.appendChild(hud);
+  let hudOpen = false;
+  let nudge = null; // 에이전트가 먼저 묻는 말 { ep, why }
+  const nudgeSkipped = new Set();
+
   hud.addEventListener("click", (e) => {
-    if (e.target?.dataset?.act !== "mem") return;
-    memOpen = !memOpen;
+    if (drag.moved) return; // 끌어서 옮긴 건 클릭으로 안 침
+    const act = e.target?.closest?.("[data-act]")?.dataset?.act;
+    if (act === "mem") memOpen = !memOpen;
+    else if (act === "open") hudOpen = true;
+    else if (act === "close") hudOpen = false;
+    else if (act === "plus1") setWatched(settings.watchedEpisode + 1, "+1화");
+    else if (act === "nudge-yes" && nudge) setWatched(nudge.ep, "제안 수락");
+    else if (act === "nudge-no" && nudge) {
+      nudgeSkipped.add(nudge.ep);
+      nudge = null;
+    } else return;
+    e.stopPropagation();
     refreshCounts();
   });
+
+  function setWatched(ep, why) {
+    ep = Math.max(0, Math.min(99, ep));
+    if (nudge && ep >= nudge.ep) nudge = null;
+    chrome.storage.local.set({ watchedEpisode: ep });
+    toast(`${ep}화까지 본 걸로 바꿨어요 (${why})`);
+  }
+
+  // 끌어서 옮기기
+  const drag = { on: false, moved: false, sx: 0, sy: 0, x: 0, y: 0 };
+  hud.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0 || e.target.closest("button:not(.bdk-pill)")) return;
+    const r = hud.getBoundingClientRect();
+    Object.assign(drag, { on: true, moved: false, sx: e.clientX, sy: e.clientY, x: r.left, y: r.top });
+  });
+  window.addEventListener("pointermove", (e) => {
+    if (!drag.on) return;
+    const dx = e.clientX - drag.sx,
+      dy = e.clientY - drag.sy;
+    if (!drag.moved && Math.hypot(dx, dy) < 5) return;
+    drag.moved = true;
+    placeHud(drag.x + dx, drag.y + dy);
+  });
+  window.addEventListener("pointerup", () => {
+    if (!drag.on) return;
+    drag.on = false;
+    if (drag.moved) {
+      const r = hud.getBoundingClientRect();
+      chrome.storage.local.set({ hudPos: { x: r.left, y: r.top } });
+      setTimeout(() => (drag.moved = false), 0); // 바로 뒤 click은 무시
+    }
+  });
+  function placeHud(x, y) {
+    const w = hud.offsetWidth,
+      hh = hud.offsetHeight;
+    hud.style.left = `${Math.max(4, Math.min(innerWidth - w - 4, x))}px`;
+    hud.style.top = `${Math.max(4, Math.min(innerHeight - hh - 4, y))}px`;
+    hud.style.right = hud.style.bottom = "auto";
+  }
+  chrome.storage.local.get("hudPos", ({ hudPos }) => hudPos && requestAnimationFrame(() => placeHud(hudPos.x, hudPos.y)));
+
+  // 에이전트가 먼저 묻기: "N화까지 보셨나요?"
+  function suggestEpisode(ep, why) {
+    if (!ep || ep <= settings.watchedEpisode || nudgeSkipped.has(ep)) return;
+    nudge = { ep, why };
+    hudOpen = true;
+    refreshCounts();
+  }
 
   // 상태창은 여러 번 바뀌어도 화면 그릴 때 한 번만 다시 그림
   let hudFrame = 0;
@@ -801,12 +900,48 @@
       if (s.status === "hide") hidden++;
       else if (s.status === "blur") blurred++;
     }
-    hud.replaceChildren(h("b", {}, "🤫 쉿스포"), ` v${VERSION}`);
-    if (!settings.enabled) return hud.append(" 꺼짐");
+    chrome.runtime.sendMessage({ type: "badge", count: settings.enabled ? hidden + blurred : 0 }).catch?.(() => {});
+    hud.classList.toggle("bdk-hud-open", hudOpen);
+    hud.classList.toggle("bdk-hud-warn", down && settings.mode !== "keyword");
+
+    if (!hudOpen) {
+      // 접힌 상태: 🤫 + 가린 개수 (+ 경고)
+      hud.replaceChildren(
+        h(
+          "button",
+          { class: "bdk-pill", "data-act": "open", title: "쉿스포 펼치기" },
+          !settings.enabled ? "🤫 꺼짐" : `🤫 ${hidden + blurred}${down && settings.mode !== "keyword" ? " ⚠" : ""}${nudge ? " · ?" : ""}`,
+        ),
+      );
+      return;
+    }
+
+    const head = h("div", { class: "bdk-hud-head" });
+    head.append(
+      h("b", {}, "🤫 쉿스포"),
+      h("span", { class: "bdk-hud-ep" }, settings.enabled ? `${settings.watchedEpisode}화까지 봄` : "꺼짐"),
+      h("button", { "data-act": "plus1", title: "한 화 더 봤어요" }, "＋1화"),
+      h("button", { "data-act": "close", title: "접기" }, "—"),
+    );
+    hud.replaceChildren(head);
+    if (!settings.enabled) return;
+
+    if (nudge) {
+      const box = h("div", { class: "bdk-nudge" });
+      box.append(
+        h("div", {}, `${nudge.why}. 혹시 ${nudge.ep}화까지 보셨나요?`),
+        h("button", { "data-act": "nudge-yes" }, `${nudge.ep}화로 바꾸기`),
+        h("button", { "data-act": "nudge-no" }, "아니요"),
+      );
+      hud.append(box);
+    }
+
     hud.append(
-      ` ${settings.mode === "keyword" ? "키워드 모드" : "판정 모드"} · ${settings.watchedEpisode}화까지 봄`,
-      h("br"),
-      `가림 ${hidden} · 의심 ${blurred} · 추론 ${stats.reasoned}${stats.lastMs ? ` · 응답 ${stats.lastMs}ms` : ""}`,
+      h(
+        "div",
+        { class: "bdk-hud-line" },
+        `${settings.mode === "keyword" ? "키워드 모드" : "판정 모드"} · 가림 ${hidden} · 의심 ${blurred} · 추론 ${stats.reasoned}${stats.lastMs ? ` · ${stats.lastMs}ms` : ""}`,
+      ),
     );
     if (settings.compare && settings.mode !== "keyword") {
       let miss = 0,
@@ -816,11 +951,16 @@
         if (t === "miss") miss++;
         else if (t === "over") over++;
       }
-      hud.append(h("br"), h("span", { class: "bdk-cmpline" }, `⚖ 키워드 대비 · 스포 ${miss}개 더 잡음 · 수다 ${over}개 덜 가림`));
+      hud.append(h("div", { class: "bdk-cmpline" }, `⚖ 키워드 대비 · 스포 ${miss}개 더 잡음 · 수다 ${over}개 덜 가림`));
     }
-    if (settings.mode !== "keyword") hud.append(h("br"), ...memoryView());
+    if (settings.mode !== "keyword") {
+      const mv = h("div");
+      mv.append(...memoryView());
+      hud.append(mv);
+    }
     if (down && settings.mode !== "keyword")
-      hud.append(h("br"), h("span", { class: "bdk-warn" }, "⚠ 판단 엔진 연결 끊김 → 키워드로 대체 중"));
+      hud.append(h("div", { class: "bdk-warn" }, "⚠ 판단 엔진 연결 끊김 → 키워드로 대체 중"));
+    hud.append(h("div", { class: "bdk-hud-ver" }, `v${VERSION} · 끌어서 옮길 수 있어요`));
   }
 
   // 작은 요소 생성 도우미 (innerHTML 대신)
@@ -874,6 +1014,8 @@
     if (learningReset || changes.watchedEpisode || changes.show)
       for (const s of state.values()) s.revealed = false;
     if (!onlyLearning || learningReset) rejudgeAll();
+    if (changes.watchedEpisode && nudge && settings.watchedEpisode >= nudge.ep) nudge = null;
+    if (changes.watchedEpisode || changes.show || changes.enabled) refreshCounts();
     if (changes.watchedEpisode || changes.show || changes.mode || changes.sensitivity || changes.enabled || changes.guardVideo)
       checkCurrentVideo(true);
   });
@@ -884,5 +1026,6 @@
     refreshCounts();
     guard.urlVid = urlVideoId();
     checkCurrentVideo(true);
+    checkNewEpisode();
   });
 })();

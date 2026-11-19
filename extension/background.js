@@ -9,6 +9,36 @@ console.log(`[쉿스포] 백그라운드 v${chrome.runtime.getManifest().version
 const DEFAULTS = { serverUrl: "http://localhost:8787", ytApiKey: "" };
 const ytTimeCache = new Map(); // 댓글 번호 → ISO (한 번 물어본 건 다시 안 물어봄)
 
+// ---------------------------------------------------------------- 툴바 아이콘 숫자 · 오늘 막은 스포 수 · 첫 설치 안내
+chrome.runtime.onInstalled.addListener(({ reason }) => {
+  if (reason === "install") chrome.tabs.create({ url: chrome.runtime.getURL("onboarding.html") });
+});
+
+// 탭마다 "이 페이지에서 가린 글 수"를 아이콘 위에 숫자로
+function setBadge(tabId, count) {
+  if (tabId == null) return;
+  chrome.action.setBadgeText({ tabId, text: count ? String(count) : "" });
+  chrome.action.setBadgeBackgroundColor({ tabId, color: "#E8590C" });
+}
+
+// 하루 동안 막은 스포 수 (팝업 맨 위에 표시). 메시지가 몰려도 순서대로 더하게 줄 세움
+let statsChain = Promise.resolve();
+function addBlocked(n) {
+  statsChain = statsChain.then(async () => {
+    const today = new Date().toLocaleDateString("sv"); // 2026-11-19 (내 컴퓨터 시간 기준)
+    const { stats = {} } = await chrome.storage.local.get("stats");
+    const next = stats.date === today ? stats : { date: today, blocked: 0 };
+    next.blocked += n;
+    next.total = (stats.total || 0) + n;
+    await chrome.storage.local.set({ stats: next });
+  });
+}
+
+chrome.runtime.onMessage.addListener((msg, sender) => {
+  if (msg.type === "badge") setBadge(sender.tab?.id, msg.count);
+  else if (msg.type === "blocked") addBlocked(msg.count || 1);
+});
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   const handler = { judge: handleJudge, ytCommentTimes: handleYtTimes, health: handleHealth, ytVideoTimes: handleYtVideoTimes, report: handleReport }[msg.type];
   if (!handler) return false;

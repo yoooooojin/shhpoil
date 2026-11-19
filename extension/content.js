@@ -1045,6 +1045,7 @@
     else if (act === "open") hudOpen = true;
     else if (act === "close") hudOpen = false;
     else if (act === "plus1") setWatched(settings.watchedEpisode + 1, "+1화");
+    else if (act === "minus1" && settings.watchedEpisode > 0) setWatched(settings.watchedEpisode - 1, "−1화");
     else if (act === "reguard") {
       for (const k of [...guard.dismissed]) if (k.startsWith(`${guard.passed}@`)) guard.dismissed.delete(k);
       guard.passed = null;
@@ -1058,6 +1059,16 @@
     e.stopPropagation();
     refreshCounts();
   });
+
+  function hudStepper() {
+    const step = h("span", { class: "bdk-hud-step" });
+    step.append(
+      h("button", { "data-act": "minus1", title: "한 화 빼기", "aria-label": "한 화 빼기", ...(settings.watchedEpisode <= 0 ? { disabled: "" } : {}) }, "−"),
+      h("span", { class: "bdk-hud-ep" }, `${settings.watchedEpisode}화까지 봄`),
+      h("button", { "data-act": "plus1", title: "한 화 더 봤어요", "aria-label": "한 화 더하기" }, "＋"),
+    );
+    return step;
+  }
 
   function setWatched(ep, why) {
     ep = Math.max(0, Math.min(99, ep));
@@ -1143,9 +1154,9 @@
     const head = h("div", { class: "bdk-hud-head" });
     head.append(
       h("b", {}, "🤫 쉿스포"),
-      h("span", { class: "bdk-hud-ep" }, settings.enabled ? `${settings.watchedEpisode}화까지 봄` : "꺼짐"),
-      h("button", { "data-act": "plus1", title: "한 화 더 봤어요" }, "＋1화"),
-      h("button", { "data-act": "close", title: "접기" }, "—"),
+      // 본 회차: 팝업과 같은 − 회차 ＋ 모양 (꺼져 있으면 회차 조절 대신 "꺼짐")
+      settings.enabled ? hudStepper() : h("span", { class: "bdk-hud-ep" }, "꺼짐"),
+      h("button", { "data-act": "close", class: "bdk-hud-close", title: "상태창 접기" }, "접기"),
     );
     hud.replaceChildren(head);
     if (!settings.enabled) return;

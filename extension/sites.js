@@ -52,7 +52,11 @@ window.BDK_SITES = [
     // 유튜브는 화면 구조를 자주 바꿔서, 안 잡히면 개발자 도구(F12)로 아래 선택자를 확인하세요.
     name: "youtube",
     match: (loc) => loc.hostname === "www.youtube.com" || loc.hostname === "m.youtube.com",
-    items: (root) => root.querySelectorAll("#comments ytd-comment-view-model, #comments ytd-comment-renderer"),
+    // 일반 영상은 #comments, 쇼츠는 오른쪽 댓글 패널의 <ytd-comments> 안에 있음
+    items: (root) =>
+      root.querySelectorAll(
+        "#comments ytd-comment-view-model, #comments ytd-comment-renderer, ytd-comments ytd-comment-view-model, ytd-comments ytd-comment-renderer"
+      ),
     idOf: (el) => commentIdOf(el),
     text: (el) => (el.querySelector("#content-text")?.textContent || "").trim(),
     postedAt: (el) => {
@@ -62,8 +66,10 @@ window.BDK_SITES = [
     },
     // 영상 제목 + (답글이면) 원댓글. 판단 엔진에는 "제목\n원댓글: …" 형태의 글자로 전달됨
     context: (el) => {
+      // 쇼츠는 제목 요소가 따로 없어서 탭 제목으로 대신함
       const title =
-        document.querySelector("ytd-watch-metadata h1, h1.ytd-watch-metadata, #title h1")?.textContent?.trim() || "";
+        document.querySelector("ytd-watch-metadata h1, h1.ytd-watch-metadata, #title h1")?.textContent?.trim() ||
+        document.title.replace(/\s*-\s*YouTube\s*$/, "").trim();
       if (!el.closest("ytd-comment-replies-renderer")) return title;
       const thread = el.closest("ytd-comment-thread-renderer");
       const parent = [...(thread?.querySelectorAll("ytd-comment-view-model, ytd-comment-renderer") || [])].find(
@@ -104,7 +110,7 @@ window.BDK_SITES = [
     match: (loc) => loc.hostname === "www.youtube.com" || loc.hostname === "m.youtube.com",
     items: (root) =>
       [...root.querySelectorAll(VIDEO_CARD)].filter(
-        (el) => !el.parentElement?.closest(VIDEO_CARD) && !el.closest("#comments") && videoIdOf(el)
+        (el) => !el.parentElement?.closest(VIDEO_CARD) && !el.closest("#comments, ytd-comments") && videoIdOf(el)
       ),
     idOf: (el) => {
       const v = videoIdOf(el);
@@ -138,8 +144,10 @@ window.BDK_SITES = [
   },
 ];
 
+// 쇼츠 카드: 홈·검색의 쇼츠 줄 (ytm-shorts-lockup-view-model-v2 안에 옛 이름이 한 겹 더 있음 → 바깥 것만 씀)
 const VIDEO_CARD =
-  "ytd-compact-video-renderer, yt-lockup-view-model, ytd-rich-item-renderer, ytd-video-renderer, ytd-grid-video-renderer";
+  "ytd-compact-video-renderer, yt-lockup-view-model, ytd-rich-item-renderer, ytd-video-renderer, ytd-grid-video-renderer, " +
+  "ytm-shorts-lockup-view-model-v2, ytm-shorts-lockup-view-model, ytd-reel-item-renderer";
 
 // 카드 안 영상 링크(/watch?v=… 또는 /shorts/…)에서 영상 번호를 꺼냄
 function videoIdOf(el) {

@@ -25,10 +25,13 @@
     sensitivity: 0.5, // 0: 확실한 스포만 ~ 1: 조금이라도 의심되면
     keywords: "흑백요리사,최강록,우승,탈락",
     typeOffsets: {}, // 학습 결과: 글 종류별 기준 보정값
+    compare: false, // 키워드 방식이었다면 어땠을지 같이 표시 (비교 보기)
     overrides: {}, // 사용자가 직접 판정한 댓글: { 댓글id: { decision: "show" | "hide", ep: 누른 때의 본 회차 } }
   };
   // 저장만 바뀌고 화면 전체를 다시 판단할 필요는 없는 설정
   const LEARNING_KEYS = ["typeOffsets", "overrides"];
+  // 다시 판단할 필요 없이 화면 표시만 바뀌는 설정
+  const DISPLAY_KEYS = ["compare"];
 
   let settings = { ...DEFAULTS };
   const state = new Map(); // id → { el, text, postedAt, result, status }
@@ -297,6 +300,26 @@
     decide(id);
   }
 
+  // 키워드 방식(비교 기준): 팝업의 차단 키워드 중 하나라도 들어 있으면 가림
+  function keywordHit(text) {
+    return settings.keywords
+      .split(",")
+      .map((w) => w.trim())
+      .filter(Boolean)
+      .find((w) => text.includes(w));
+  }
+
+  // 비교 보기: 쉿스포 판단과 키워드 방식이 갈린 글에만 꼬리표
+  function compareTag(s) {
+    if (!settings.compare || settings.mode === "keyword" || s.fallback || !s.result) return null;
+    if (settings.overrides?.[s.el?.dataset?.bdkId]) return null;
+    const ours = s.status === "hide" || s.status === "blur";
+    const kw = !!keywordHit(s.text);
+    if (ours && !kw) return "miss"; // 쉿스포는 잡았는데 키워드는 놓침
+    if (!ours && kw && s.status === "show") return "over"; // 키워드였으면 괜히 가렸을 글
+    return null;
+  }
+
   function applyKeyword(id, fallback = false) {
     const s = state.get(id);
     s.fallback = fallback;
@@ -399,6 +422,15 @@
       );
     const open = status === "show" || status === "error" || s.revealed;
     b.append(h("span", { class: "bdk-why", title: (open ? s.whyFull : s.whySafe) || "" }, "ⓘ"));
+    const cmp = compareTag(s);
+    if (cmp)
+      b.append(
+        h(
+          "span",
+          { class: `bdk-cmp bdk-cmp-${cmp}` },
+          cmp === "miss" ? "키워드였다면 놓침" : "키워드였다면 괜히 가림",
+        ),
+      );
     b.addEventListener("click", (e) => {
       const act = e.target?.dataset?.act;
       if (!act) return;
@@ -552,6 +584,16 @@
       h("br"),
       `가림 ${hidden} · 의심 ${blurred} · 추론 ${stats.reasoned}${stats.lastMs ? ` · 응답 ${stats.lastMs}ms` : ""}`,
     );
+    if (settings.compare && settings.mode !== "keyword") {
+      let miss = 0,
+        over = 0;
+      for (const s of state.values()) {
+        const t = compareTag(s);
+        if (t === "miss") miss++;
+        else if (t === "over") over++;
+      }
+      hud.append(h("br"), h("span", { class: "bdk-cmpline" }, `⚖ 키워드 대비 · 스포 ${miss}개 더 잡음 · 수다 ${over}개 덜 가림`));
+    }
     if (settings.mode !== "keyword") hud.append(h("br"), ...memoryView());
     if (down && settings.mode !== "keyword")
       hud.append(h("br"), h("span", { class: "bdk-warn" }, "⚠ 판단 엔진 연결 끊김 → 키워드로 대체 중"));
@@ -597,7 +639,9 @@
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     for (const [k, v] of Object.entries(changes)) settings[k] = v.newValue ?? DEFAULTS[k];
-    const onlyLearning = Object.keys(changes).every((k) => LEARNING_KEYS.includes(k));
+    const onlyLearning = Object.keys(changes).every((k) => LEARNING_KEYS.includes(k) || DISPLAY_KEYS.includes(k));
+    if (changes.compare)
+      for (const [id, s] of state) if (["hide", "blur", "show"].includes(s.status)) setStatus(id, s.status);
     // 팝업의 "학습 초기화" → 직접 누른 결정이 비워짐
     const learningReset =
       changes.overrides && !Object.keys(changes.overrides.newValue || {}).length;

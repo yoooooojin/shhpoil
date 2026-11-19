@@ -9,6 +9,7 @@ const DEFAULTS = {
   ytApiKey: "",
   typeOffsets: {},
   overrides: {},
+  compare: false,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -47,6 +48,7 @@ chrome.storage.local.get(DEFAULTS, (s) => {
   $("keywords").value = s.keywords;
   $("serverUrl").value = s.serverUrl;
   $("ytApiKey").value = s.ytApiKey;
+  $("compare").checked = s.compare;
   renderMode(s.mode);
   renderOffsets(s.typeOffsets, s.overrides);
   checkHealth(s.serverUrl);
@@ -61,6 +63,7 @@ $("serverUrl").addEventListener("change", (e) => {
   save({ serverUrl: e.target.value.trim() });
   checkHealth(e.target.value.trim());
 });
+$("compare").addEventListener("change", (e) => save({ compare: e.target.checked }));
 $("ytApiKey").addEventListener("change", (e) => save({ ytApiKey: e.target.value.trim() }));
 document.querySelectorAll(".seg button").forEach((b) =>
   b.addEventListener("click", () => {

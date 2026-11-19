@@ -335,10 +335,10 @@
         trace("오류", "단서 보고 다시 판정 실패 → 첫 판정으로 결정", { id, error: String(res?.error || "응답 없음") });
         return decide(id);
       }
-      r.reasoned = true;
+      // reasoned는 엔진이 준 값 그대로 (auto 모드에서 Zoro가 확신해서 생각을 건너뛰면 false). 다시 묻기 반복은 s.reasked로 막음
       s.usedClues = r.used_clues?.length ? r.used_clues : got;
       trace("판단", `Zoro-1이 ${clueLabel(s.usedClues) || "단서"}${eulReul(clueLabel(s.usedClues) || "단서")} 더 보고 다시 판정`, {
-        id, ms: res.ms, used_clues: s.usedClues, type: r.type, p: pct(r.p_spoiler), before_p: pct(s.result?.p_spoiler),
+        id, ms: res.ms, used_clues: s.usedClues, reasoned: !!r.reasoned, type: r.type, p: pct(r.p_spoiler), before_p: pct(s.result?.p_spoiler),
         event_episode: r.matched_event?.episode ?? null, event_text: raw(r.matched_event?.text),
       });
       stats.reasoned++;
@@ -462,7 +462,7 @@
       trace("오류", "추론 모드 응답 실패 → 첫 판정으로 결정", { id });
       return decide(id); // 실패하면 첫 판단 결과로 결정 (흐린 채로 멈추지 않게)
     }
-    trace("판단", "Zoro-1 추론 모드 판정 받음", { id, ms: res.ms, type: r.type, p: pct(r.p_spoiler), before_p: pct(s.result?.p_spoiler), event_episode: r.matched_event?.episode ?? null, event_text: raw(r.matched_event?.text) });
+    trace("판단", `Zoro-1 다시 판정 받음 (${r.reasoned ? "Zoro가 추론함" : "Zoro가 확신해서 추론 건너뜀"})`, { id, ms: res.ms, reasoned: !!r.reasoned, type: r.type, p: pct(r.p_spoiler), before_p: pct(s.result?.p_spoiler), event_episode: r.matched_event?.episode ?? null, event_text: raw(r.matched_event?.text) });
     stats.reasoned++;
     s.result = r;
     remember(id, r);

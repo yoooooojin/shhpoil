@@ -199,3 +199,6 @@ html[dark] {
   .bdk-b-show.bdk-b-more-open > .bdk-reason { display: inline; }
   .bdk-b-show.bdk-b-more-open .bdk-acts, .bdk-b-show.bdk-b-more-open .bdk-acts > button { display: flex; }
 }
+
+/* 가린 영상의 미리보기 재생 숨김 */
+.bdk-preview-blocked { visibility: hidden !important; }

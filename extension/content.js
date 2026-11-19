@@ -721,6 +721,34 @@
   // 경고가 떠 있는 동안 자동 재생되면 바로 멈춤
   document.addEventListener("play", (e) => guard.overlay && e.target.pause?.(), true);
 
+  // ---------------------------------------------------------------- 미리보기 재생 막기
+  // 유튜브는 카드에 마우스를 올려 두면 카드 바깥의 #video-preview 상자에 따로 플레이어를 띄워 재생함
+  // → 재생되려는 순간 그 상자의 영상 링크를 보고, 쉿스포가 가린 영상이면 멈추고 상자를 숨김
+  const PREVIEW = "#video-preview, ytd-video-preview";
+  function previewBlocked(video) {
+    const host = video.closest?.("#video-preview") || video.closest?.("ytd-video-preview");
+    if (!host) return false;
+    const href = host.querySelector("a[href*='watch?v='], a[href*='/shorts/']")?.getAttribute("href") || "";
+    const m = href.match(/[?&]v=([\w-]{11})/) || href.match(/\/shorts\/([\w-]{11})/);
+    const s = m && state.get(`v:${m[1]}`);
+    const blocked = !!s && settings.enabled && (s.status === "hide" || s.status === "blur") && !s.revealed;
+    host.classList.toggle("bdk-preview-blocked", blocked);
+    return blocked;
+  }
+  for (const type of ["play", "playing", "timeupdate"])
+    document.addEventListener(
+      type,
+      (e) => {
+        const v = e.target;
+        if (v?.tagName !== "VIDEO" || !v.closest?.(PREVIEW)) return;
+        if (previewBlocked(v)) {
+          v.muted = true;
+          v.pause();
+        }
+      },
+      true,
+    );
+
   function showGuard(cur, verdict) {
     hideGuard();
     pauseAll();

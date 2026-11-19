@@ -16,6 +16,7 @@
     python tools/collect_comments.py --show 새작품 --auto-schedule --search "새작품 리뷰" --order time
     → 추정 일정은 data/shows_새작품.json 에 저장 (근거 영상 포함). --write-shows 를 붙이면 엔진 shows.json에 바로 추가
     → 회차마다 검색 1번(할당량 100)이라 13화짜리면 약 1,500 사용
+    → --save-as 흑백요리사2_자동 : 검색은 --show 이름으로, 저장은 다른 이름으로 (손으로 만든 일정·기억장과 안 섞이게 비교 시험)
   shows.json 모양: {"흑백요리사2": {"drops": [["2025-12-16T17:00:00+09:00", 3], ...]}}  (공개 시각, 그때까지 공개된 마지막 회차)
 
 결과: data/comments_YYYYMMDD_HHMM.csv (엑셀에서 바로 열림)
@@ -282,6 +283,7 @@ def main():
     ap.add_argument("--show", help="작품 이름 (shows.json의 키). 생략하면 흑백요리사2 내장 일정")
     ap.add_argument("--schedule", help=f"일정 파일이나 GET /shows 주소 (기본: {SHOWS_JSON.relative_to(SHOWS_JSON.parents[2])})")
     ap.add_argument("--auto-schedule", action="store_true", help="--show 작품의 공개 일정을 유튜브 리뷰 영상으로 추정")
+    ap.add_argument("--save-as", help="추정 일정을 이 이름으로 저장 (예: 흑백요리사2_자동). 기존 작품과 비교 시험용")
     ap.add_argument("--write-shows", action="store_true", help="추정 일정을 엔진 engine/config/shows.json에 추가 (이미 있으면 안 건드림)")
     ap.add_argument("--search", help="이 검색어로 회차 공개 구간마다 영상을 자동으로 찾음")
     ap.add_argument("--per-window", type=int, default=3, help="--search 때 구간마다 고를 영상 수 (기본 3)")
@@ -307,7 +309,7 @@ def main():
             DROPS, evidence = guess_schedule(args.show, key)
         except RuntimeError as e:
             sys.exit(f"일정 추정 실패: {e}")
-        save_schedule(args.show, DROPS, evidence, args.write_shows)
+        save_schedule(args.save_as or args.show, DROPS, evidence, args.write_shows)
         if not args.videos and not args.search:
             return
     elif args.show or args.schedule:
@@ -327,7 +329,8 @@ def main():
         known = {v for v, _ in targets}
         targets += [(v, w) for v, w in hits if v not in known and not known.add(v)]
 
-    out = Path(args.out or f"data/comments_{datetime.now():%Y%m%d_%H%M}.csv")
+    tag = f"{args.save_as}_" if args.save_as else ""
+    out = Path(args.out or f"data/comments_{tag}{datetime.now():%Y%m%d_%H%M}.csv")
     out.parent.mkdir(parents=True, exist_ok=True)
 
     all_rows, seen = [], set()

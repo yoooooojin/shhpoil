@@ -418,7 +418,9 @@
       b.append(h("span", { class: "bdk-reason" }, s.short));
     if (status === "hide" || status === "blur") {
       b.append(
-        h("button", { "data-act": "reveal" }, "보기"),
+        s.revealed
+          ? h("button", { "data-act": "rehide" }, "다시 가리기")
+          : h("button", { "data-act": "reveal" }, "보기"),
         h("button", { "data-act": "notspoiler" }, "스포 아님"),
       );
     }
@@ -454,9 +456,9 @@
   // ---------------------------------------------------------------- 학습
   async function onFeedback(id, act) {
     const s = state.get(id);
-    if (act === "reveal") {
-      s.revealed = true;
-      setStatus(id, s.status); // 열린 상태로 다시 그림 (이유에 사건 내용도 표시)
+    if (act === "reveal" || act === "rehide") {
+      s.revealed = act === "reveal";
+      setStatus(id, s.status); // 열림/닫힘 상태로 다시 그림 (열리면 이유에 사건 내용도 표시)
       return;
     }
     // 사용자의 직접 결정은 이 댓글에 고정하고 저장 (회차 변경·새로고침에도 유지)
@@ -665,7 +667,10 @@
     // 팝업의 "학습 초기화" → 직접 누른 결정이 비워짐
     const learningReset =
       changes.overrides && !Object.keys(changes.overrides.newValue || {}).length;
-    if (learningReset) for (const s of state.values()) s.revealed = false;
+    // "보기"는 한 번 엿본 것 → 회차나 작품이 바뀌면 다시 닫고 새 기준으로 판단
+    // ("스포 아님 / 스포였음"으로 직접 판정한 건 누른 회차 기준으로 따로 유지됨)
+    if (learningReset || changes.watchedEpisode || changes.show)
+      for (const s of state.values()) s.revealed = false;
     if (!onlyLearning || learningReset) rejudgeAll();
   });
 

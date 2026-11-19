@@ -100,7 +100,7 @@ def load_events_csv(path):
 
 
 # ---------- 댓글로 기억장 자동 만들기 ----------
-RESULT_P = float(os.environ.get("AUTO_RESULT_P", "0.6"))     # '결과 공개'(+유출) 확률이 이 이상인 글만
+RESULT_P = float(os.environ.get("AUTO_RESULT_P", "0.5"))     # '실제 결과가 담겨 있나' 예 확률이 이 이상인 글만
 SAME_CANDS = int(os.environ.get("AUTO_SAME_CANDS", "25"))     # 같은 사건인지 물을 때 보여 줄 기존 사건 수
 LABELED_VIDEOS = {"58uo5T2BU8A", "0yD2KLHXuNs", "duKTefAbPpY", "7h2XvmRcNwM", "zwHzfr8IXPs",
                   "XT5mP8x72_U", "T-XNapr7z6Q", "m3Cj0MvS7fc", "ggvso2ilq_s", "hzN0SPCDIAs"}
@@ -165,19 +165,19 @@ def build_from_comments(show, path, until=None, min_hits=2, review_out=None):
     print(f"댓글 {len(rows)}개 (평가에 쓴 영상·댓글, 작성 시점 모름은 뺌)")
 
     def classify(r):
-        ctx = r.get("video_title") or ""
-        out = zoro_client.decide(Q.build_state(show, {"text": r["text"], "context": ctx}), Q.build_questions([], show))
-        t = out["answers"]["type"]
-        pr = t.get("probabilities") or {t["choice"]: 1.0}
-        return float(pr.get("결과 공개", 0)) + float(pr.get("유출 주장", 0))
+        out = zoro_client.decide({"작품": show, "댓글": r["text"], "영상 제목": r.get("video_title") or ""},
+                                 Q.HAS_RESULT_QUESTION)
+        a = out["answers"]["has_result"]
+        return float((a.get("probabilities") or {a["choice"]: 1.0}).get("예", 0))
 
     with ThreadPoolExecutor(max_workers=16) as pool:
         scores = list(pool.map(classify, rows))
     kept = [r for r, sc in zip(rows, scores) if sc >= RESULT_P]
-    print(f"① 거르기: '결과 공개'로 본 글 {len(kept)}개")
+    print(f"① 거르기: '실제 결과가 담겨 있다'고 본 글 {len(kept)}개 (기준 {RESULT_P})")
 
     def ext(r):
-        t = zoro_client.chat(Q.EXTRACT_PROMPT.format(show=show, text=r["text"]), max_tokens=48).strip().strip('"')
+        t = zoro_client.chat(Q.EXTRACT_WITH_TITLE_PROMPT.format(show=show, title=r.get("video_title") or "", text=r["text"]),
+                             max_tokens=64).strip().strip('"').rstrip(".")
         return t if 4 <= len(t) <= 60 and t not in ("없음", "해당 없음") else None
 
     with ThreadPoolExecutor(max_workers=16) as pool:

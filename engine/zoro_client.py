@@ -54,11 +54,20 @@ def decide(state, questions, reasoning=False):
     return _normalize(_post(f"{ZORO_URL}/v1/decide", body))
 
 
+# 문장 쓰기(chat)는 생각을 끄고 바로 답하게: 켜 두면 짧은 max_tokens 안에서 생각만 쓰다 답이 비어 버림
+CHAT_THINKING = os.environ.get("ZORO_CHAT_THINKING", "0") == "1"
+
+
 def chat(prompt, max_tokens=64, first_line_only=True):
     body = {"model": ZORO_MODEL, "max_tokens": max_tokens, "temperature": 0,
             "messages": [{"role": "user", "content": prompt}]}
+    if not CHAT_THINKING:
+        body["chat_template_kwargs"] = {"enable_thinking": False}
     raw = _post(f"{ZORO_CHAT_URL}/v1/chat/completions", body)
-    text = raw["choices"][0]["message"]["content"]
+    msg = raw["choices"][0]["message"]
+    text = msg.get("content") or ""
+    if not text.strip() and msg.get("reasoning_content") and max_tokens < 512:
+        return chat(prompt, max_tokens=512, first_line_only=first_line_only)  # 생각만 쓰고 잘렸으면 길게 한 번 더
     if "</think>" in text:  # 추론 흔적 제거
         text = text.split("</think>")[-1]
     text = text.strip()

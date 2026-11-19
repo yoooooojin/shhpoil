@@ -22,7 +22,7 @@
     mode: "zoro", // "zoro" | "keyword"
     show: "흑백요리사2",
     watchedEpisode: 3,
-    sensitivity: 0.7, // 0: 확실한 스포만 ~ 1: 조금이라도 의심되면 · 기본 0.7: 처음 보는 무작위 데이터(test3)에서 0.4·0.5가 거의 안 가려 조정
+    sensitivity: 0.5, // 0: 확실한 스포만 ~ 1: 조금이라도 의심되면 (기본 0.5: dev로 정한 값, 최종 엔진 test3에서도 키워드보다 덜 놓치고 덜 가림)
     keywords: "흑백요리사,최강록,우승,탈락",
     typeOffsets: {}, // 학습 결과: 글 종류별 기준 보정값
     guardVideo: true, // 지금 보는 영상 자체가 스포면 재생 전에 경고

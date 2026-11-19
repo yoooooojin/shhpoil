@@ -13,7 +13,6 @@ const DEFAULTS = {
   guardVideo: true,
   batchSize: 20,
   timeoutSec: 10,
-  stats: {},
   logOn: false,
   logText: false,
   logScenario: "",
@@ -42,12 +41,6 @@ function renderOffsets(offsets, overrides) {
   const n = Object.keys(overrides || {}).length;
   if (n) parts.push(`직접 판정한 글 ${n}개`);
   $("offsets").textContent = parts.length ? parts.join(" · ") : "아직 없음";
-}
-
-function renderStats(stats) {
-  const today = new Date().toLocaleDateString("sv");
-  $("statToday").textContent = stats?.date === today ? stats.blocked : 0;
-  $("statTotal").textContent = stats?.total ? `지금까지 ${stats.total}개` : "";
 }
 
 async function checkHealth(url) {
@@ -80,7 +73,6 @@ chrome.storage.local.get(DEFAULTS, (s) => {
   renderMode(s.mode);
   renderPreset(s.sensitivity);
   renderOffsets(s.typeOffsets, s.overrides);
-  renderStats(s.stats);
   checkHealth(s.serverUrl);
 });
 
@@ -322,7 +314,6 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "local") return;
   if (changes.feedbackLog) renderFb(changes.feedbackLog.newValue);
   if (changes.agentLog) renderLog(changes.agentLog.newValue || []);
-  if (changes.stats) renderStats(changes.stats.newValue);
   if (changes.watchedEpisode) $("watchedEpisode").value = changes.watchedEpisode.newValue;
   if (changes.typeOffsets || changes.overrides)
     chrome.storage.local.get(DEFAULTS, (s) => renderOffsets(s.typeOffsets, s.overrides));

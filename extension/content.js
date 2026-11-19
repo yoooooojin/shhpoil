@@ -459,8 +459,6 @@
   }
 
   // ---------------------------------------------------------------- 화면
-  let blockedPending = 0,
-    blockedTimer = null;
   function setStatus(id, status) {
     const s = state.get(id);
     s.status = status;
@@ -480,16 +478,6 @@
       return;
     }
     el.classList.add(status === "hide" ? "bdk-hide" : "bdk-blur");
-    if (!s.counted) {
-      // 오늘 막은 스포 수 (글마다 한 번만, 1초씩 모아서 보냄)
-      s.counted = true;
-      blockedPending++;
-      blockedTimer ||= setTimeout(() => {
-        chrome.runtime.sendMessage({ type: "blocked", count: blockedPending }).catch?.(() => {});
-        blockedPending = 0;
-        blockedTimer = null;
-      }, 1000);
-    }
     if (s.revealed) el.classList.add("bdk-revealed"); // "보기"로 열어 둔 건 다시 판단돼도 열린 채로
     addBadge(el, id, status);
     refreshCounts();

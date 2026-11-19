@@ -22,6 +22,22 @@ import zoro_client  # noqa: E402
 NONE = "없음"
 
 
+def _tokens(t):
+    import re
+    return set(re.findall(r"[가-힣A-Za-z0-9]{2,}", t.replace(" ", " ")))
+
+
+def shortlist(text, auto, n):
+    """선택지가 많으면 확률이 흩어져 '없음'만 남는다 → 단어가 겹치는 사건 n개로 먼저 추림"""
+    tok = _tokens(text)
+    flat = text.replace(" ", "")
+    def score(e):
+        et = _tokens(e["text"])
+        return len(tok & et) + sum(1 for w in et if w in flat)
+    ranked = sorted(auto, key=lambda e: -score(e))
+    return [e for e in ranked if score(e) > 0][:n]
+
+
 def best_match(show, text, cands, min_p):
     crit = {e["text"]: f"{e['episode']}화 사건" for e in cands}
     crit[NONE] = "목록의 어떤 사건과도 다른 일"
@@ -38,6 +54,7 @@ def main():
     ap.add_argument("--human", default="흑백요리사2")
     ap.add_argument("--auto", default="흑백요리사2_자동")
     ap.add_argument("--min-p", type=float, default=0.5)
+    ap.add_argument("--cands", type=int, default=8, help="사람 사건마다 보여 줄 자동 사건 후보 수")
     args = ap.parse_args()
 
     human, auto = memory.load(args.human), memory.load(args.auto)
@@ -46,7 +63,8 @@ def main():
     by_text = {e["text"]: e for e in auto}
     rows, used = [], set()
     for h in sorted(human, key=lambda e: e["episode"]):
-        name, p = best_match(args.human, h["text"], auto, args.min_p)
+        cands = shortlist(h["text"], auto, args.cands)
+        name, p = best_match(args.human, h["text"], cands, args.min_p) if cands else (None, 0.0)
         a = by_text.get(name)
         if a:
             used.add(a["text"])

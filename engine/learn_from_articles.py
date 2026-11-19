@@ -34,7 +34,7 @@ import questions as Q  # noqa: E402
 import schedule  # noqa: E402
 import zoro_client  # noqa: E402
 
-SAME_P = float(os.environ.get("SAME_EVENT_P", "0.6"))
+SAME_P = float(os.environ.get("SAME_EVENT_P", "0.5"))
 MAX_CHARS = int(os.environ.get("ARTICLE_MAX_CHARS", "4000"))
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"
 
@@ -178,7 +178,9 @@ def build_from_comments(show, path, until=None, min_hits=2, review_out=None):
     def ext(r):
         t = zoro_client.chat(Q.EXTRACT_WITH_TITLE_PROMPT.format(show=show, title=r.get("video_title") or "", text=r["text"]),
                              max_tokens=64).strip().strip('"').rstrip(".")
-        return t if 4 <= len(t) <= 60 and t not in ("없음", "해당 없음") else None
+        t = t.strip("'\" ")
+        ok = 3 <= len(t) <= 30 and t not in ("없음", "해당 없음") and any(w_ in t for w_ in Q.RESULT_WORDS)
+        return t if ok else None
 
     with ThreadPoolExecutor(max_workers=16) as pool:
         texts = list(pool.map(ext, kept))
@@ -226,7 +228,7 @@ def main():
     ap.add_argument("--articles", help="기사 목록 JSON (engine/config/articles.<작품>.json)")
     ap.add_argument("--seed", help="정리해 둔 사건 목록 JSON을 그대로 넣기 (engine/config/events.<작품>.json)")
     ap.add_argument("--comments", help="댓글 CSV로 기억장 자동 만들기 (collect_comments.py 결과)")
-    ap.add_argument("--min-hits", type=int, default=2, help="--comments: 이만큼 언급된 사건만 남김")
+    ap.add_argument("--min-hits", type=int, default=2, help="--comments: 이만큼 언급된 사건만 남김 (확인용 CSV에는 다 남음)")
     ap.add_argument("--show", help="작품명 (없으면 JSON의 show)")
     ap.add_argument("--until-episode", type=int, help="이 회차까지 공개된 시점까지만 (시간 돌리기)")
     ap.add_argument("--keep", action="store_true", help="기존 기억장을 지우지 않고 이어서")

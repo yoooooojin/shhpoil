@@ -38,7 +38,7 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
 });
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  const handler = { judge: handleJudge, ytCommentTimes: handleYtTimes, health: handleHealth, ytVideoTimes: handleYtVideoTimes, report: handleReport, ytClues: handleYtClues, shows: handleShows }[msg.type];
+  const handler = { judge: handleJudge, ytCommentTimes: handleYtTimes, health: handleHealth, ytVideoTimes: handleYtVideoTimes, report: handleReport, ytClues: handleYtClues, shows: handleShows, forget: handleForget }[msg.type];
   if (!handler) return false;
   handler(msg)
     .then((res) => sendResponse({ ok: true, ...res }))
@@ -184,6 +184,20 @@ async function handleYtClues(msg) {
     if (res.ok) out.replies = ((await res.json()).items || []).map((i) => i.snippet?.textDisplay).filter(Boolean);
   }
   return out;
+}
+
+// 시연 초기화: 신고(/report)로 들어간 사건만 지움. 사람이 만든 사건은 그대로 (POST /memory/forget)
+async function handleForget(msg) {
+  const { serverUrl } = await chrome.storage.local.get(DEFAULTS);
+  const res = await fetch(`${serverUrl.replace(/\/$/, "")}/memory/forget`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ show: msg.show, source: "report" }),
+    signal: AbortSignal.timeout(8000),
+  });
+  if (res.status === 404) throw new Error("서버에 아직 초기화 기능이 없어요 (팀원 서버 반영 전)");
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return { data: await res.json() };
 }
 
 // 스포 신고 → 판단 엔진이 사건을 뽑아 기억장에 추가 (POST /report)

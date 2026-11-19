@@ -130,6 +130,28 @@ $("serverUrl").addEventListener("change", (e) => {
 $("batchSize").addEventListener("change", (e) => save({ batchSize: Math.max(1, Number(e.target.value) || 20) }));
 $("timeoutSec").addEventListener("change", (e) => save({ timeoutSec: Math.max(1, Number(e.target.value) || 10) }));
 $("ytApiKey").addEventListener("change", (e) => save({ ytApiKey: e.target.value.trim() }));
+// 시연 초기화: 서버 기억장의 신고 사건만 지움 (POST /memory/forget) + 이 브라우저 학습 초기화. 실수 방지로 두 번 눌러야 실행
+let resetArmed = null;
+$("demoReset").addEventListener("click", () => {
+  const msg = $("demoResetMsg");
+  if (!resetArmed) {
+    msg.textContent = "한 번 더 누르면 초기화해요";
+    resetArmed = setTimeout(() => ((resetArmed = null), (msg.textContent = "")), 4000);
+    return;
+  }
+  clearTimeout(resetArmed);
+  resetArmed = null;
+  msg.textContent = "초기화 중…";
+  chrome.storage.local.get({ show: DEFAULTS.show }, ({ show }) =>
+    chrome.runtime.sendMessage({ type: "forget", show }, (res) => {
+      save({ typeOffsets: {}, overrides: {}, netflixDismissed: {} });
+      msg.textContent = res?.ok
+        ? `서버 기억장 신고 사건 ${res.data?.removed ?? 0}개 지움 · 학습 초기화 완료`
+        : `학습은 초기화했지만 서버 기억장은 못 지웠어요 (${res?.error || "응답 없음"})`;
+    })
+  );
+});
+
 $("resetLearning").addEventListener("click", () => {
   save({ typeOffsets: {}, overrides: {} });
   renderOffsets({}, {});

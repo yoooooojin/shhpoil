@@ -254,7 +254,7 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         url = urlparse(self.path)
-        if url.path not in ("/judge", "/report"):
+        if url.path not in ("/judge", "/report", "/memory/forget"):
             self.send_error(404)
             return
         length = int(self.headers.get("Content-Length", 0))
@@ -265,6 +265,16 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if url.path == "/report":
             self._json(report(payload))
+            return
+        if url.path == "/memory/forget":
+            # 팀원 엔진과 같은 약속: 신고로 들어간 사건만 지움
+            info = SHOWS.get(payload.get("show", ""))
+            if not info:
+                self._json({"removed": 0})
+                return
+            before = len(info["events"])
+            info["events"] = [e for e in info["events"] if not e.get("reported")]
+            self._json({"removed": before - len(info["events"])})
             return
         reason = parse_qs(url.query).get("reason", ["false"])[0] == "true"
         time.sleep(0.4 if reason else 0.05)  # 추론 모드는 느리다는 걸 흉내

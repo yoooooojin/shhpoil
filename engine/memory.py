@@ -13,6 +13,7 @@ import re
 import threading
 
 STORE_DIR = os.environ.get("MEMORY_DIR", os.path.join(os.path.dirname(__file__), "memory_store"))
+TOUCH_LOWERS_EPISODE = os.environ.get("TOUCH_LOWERS_EPISODE", "0") == "1"
 MAX_EVENTS_IN_QUESTION = int(os.environ.get("MAX_EVENTS", "30"))
 
 _lock = threading.Lock()
@@ -70,7 +71,9 @@ def touch(show, text, episode):
         for e in events:
             if e["text"] == text:
                 e["hits"] = e.get("hits", 1) + 1
-                if episode is not None and episode < e["episode"]:
+                # 회차 낮추기는 기본 끔: 13화 공개 전에 쓴 유출 글(12화 뒤 작성)이 '최강록 우승'을 12화 사건으로 바꿔 버려,
+                # 12화까지 본 사람에게 우승 글이 스포가 아닌 것처럼 판정되던 버그 (평가 중에도 기억장이 이렇게 바뀜)
+                if TOUCH_LOWERS_EPISODE and episode is not None and episode < e["episode"]:
                     e["episode"] = episode
                 _save(show, events)
                 return e

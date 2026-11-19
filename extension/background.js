@@ -10,7 +10,7 @@ const DEFAULTS = { serverUrl: "http://localhost:8787", ytApiKey: "" };
 const ytTimeCache = new Map(); // 댓글 번호 → ISO (한 번 물어본 건 다시 안 물어봄)
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  const handler = { judge: handleJudge, ytCommentTimes: handleYtTimes, health: handleHealth }[msg.type];
+  const handler = { judge: handleJudge, ytCommentTimes: handleYtTimes, health: handleHealth, ytVideoTimes: handleYtVideoTimes, report: handleReport }[msg.type];
   if (!handler) return false;
   handler(msg)
     .then((res) => sendResponse({ ok: true, ...res }))
@@ -79,6 +79,44 @@ async function handleYtTimes(msg) {
     }
   }
   return { times };
+}
+
+// videos.list: 영상 번호 최대 50개씩, 요청 1번에 할당량 1. 추천 영상 제목이 몇 화 공개 후 올라왔는지 계산용
+const ytVideoCache = new Map();
+async function handleYtVideoTimes(msg) {
+  const { ytApiKey } = await chrome.storage.local.get(DEFAULTS);
+  const times = {};
+  const missing = msg.ids.filter((id) => {
+    if (ytVideoCache.has(id)) times[id] = ytVideoCache.get(id);
+    return !ytVideoCache.has(id);
+  });
+  if (!ytApiKey || !missing.length) return { times };
+  for (let i = 0; i < missing.length; i += 50) {
+    const chunk = missing.slice(i, i + 50);
+    const url =
+      "https://www.googleapis.com/youtube/v3/videos?part=snippet" +
+      `&id=${encodeURIComponent(chunk.join(","))}&key=${encodeURIComponent(ytApiKey)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`YouTube API HTTP ${res.status}`);
+    for (const item of (await res.json()).items || []) {
+      const iso = item.snippet?.publishedAt;
+      if (iso) ytVideoCache.set(item.id, (times[item.id] = iso));
+    }
+  }
+  return { times };
+}
+
+// 스포 신고 → 판단 엔진이 사건을 뽑아 기억장에 추가 (POST /report)
+async function handleReport(msg) {
+  const { serverUrl } = await chrome.storage.local.get(DEFAULTS);
+  const res = await fetch(`${serverUrl.replace(/\/$/, "")}/report`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(msg.payload),
+    signal: AbortSignal.timeout(REASON_TIMEOUT_MS),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return { data: await res.json() };
 }
 
 // ---------------------------------------------------------------- 유튜브 보조 실행

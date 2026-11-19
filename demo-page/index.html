@@ -53,6 +53,7 @@
   </section>
   <aside class="side">
     <h3>다음 동영상</h3>
+    <!-- 확장이 읽는 구조: [data-bdk-video] 카드의 .t(제목), data-published(업로드 시각) -->
     <div id="list"></div>
   </aside>
 </div>
@@ -86,7 +87,7 @@
         </div>
       </div>`).join("");
     document.getElementById("list").innerHTML = DEMO_VIDEOS.map((x) => `
-      <div class="vid ${x.id === v.id ? "on" : ""}" data-v="${x.id}">
+      <div class="vid ${x.id === v.id ? "on" : ""}" data-v="${x.id}" data-bdk-video data-vid="${x.id}" data-published="${x.uploaded}">
         <div class="thumb">${esc(x.title.replace(/^\[.*?\]\s*/, ""))}</div>
         <div><div class="t">${esc(x.title)}</div><div class="m">${esc(x.channel)} · ${ago(x.uploaded)}</div></div>
       </div>`).join("");
@@ -95,6 +96,8 @@
 
   document.getElementById("list").addEventListener("click", (e) => {
     const v = e.target.closest("[data-v]");
+    // 쉿스포가 제목을 가린 영상은 "보기"를 누르기 전엔 열리지 않게 (실제 유튜브에선 링크 클릭이 막힘)
+    if (v && v.matches(".bdk-hide:not(.bdk-revealed), .bdk-blur:not(.bdk-revealed)")) return;
     if (v) { render(v.dataset.v); window.scrollTo({ top: 0, behavior: "smooth" }); }
   });
   render(location.hash.slice(1));

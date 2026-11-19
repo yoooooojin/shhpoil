@@ -48,7 +48,7 @@ SHOWS = {
 
 TYPES = ["결과 공개", "유출 주장", "루머·추측", "감상·출연자 이야기", "무관"]
 
-RESULT_WORDS = ["우승", "탈락", "떨어", "결승", "생존", "이겼", "졌", "만장일치", "올라가", "진출"]
+RESULT_WORDS = ["우승", "탈락", "떨어", "결승", "생존", "이겼", "패배", "만장일치", "올라가", "진출"]
 LEAK_WORDS = ["지인", "촬영장", "스태프", "관계자", "유출", "찌라시"]
 RUMOR_WORDS = ["설 ", "우승설", "루머", "카더라", "~듯", "할듯", "할 듯", "같음", "예상", "진짜임?", "맞음?"]
 OFFTOPIC_WORDS = ["몇 시", "몇시", "공개 시간", "자막", "화질"]
@@ -103,8 +103,45 @@ def match_event(show, text):
             continue
         p = round(min(0.95, 0.45 + 0.25 * hit), 2)
         if best is None or p > best["p"]:
-            best = {"text": ev["text"], "episode": ev["episode"], "p": p}
+            best = {"text": ev["text"], "episode": ev["episode"], "p": p, "reported": ev.get("reported", False)}
     return best
+
+
+# ---------------------------------------------------------------------------
+# 스포 신고 → 기억장 추가 (진짜 엔진에선 Zoro가 사건과 회차를 뽑음. 여기선 흉내만)
+# ---------------------------------------------------------------------------
+PARTICLES = ("에서", "으로", "이랑", "은", "는", "이", "가", "을", "를", "도", "에", "로", "랑", "의", "만")
+VERB_ENDINGS = ("다", "고", "서", "요", "네", "음", "지", "데", "까", "는", "던", "게", "면", "니", "어", "야")
+
+
+def key_word(text):
+    """신고된 글에서 사건을 대표할 단어 하나 (가장 긴 명사 비슷한 단어)."""
+    words = []
+    for w in text.replace("\n", " ").split():
+        w = "".join(ch for ch in w if ch.isalnum())
+        for p in PARTICLES:
+            if w.endswith(p) and len(w) > len(p) + 1:
+                w = w[: -len(p)]
+                break
+        if len(w) >= 2 and not w.endswith(VERB_ENDINGS) and not w.startswith("ㅋ"):
+            words.append(w)
+    return max(words, key=len) if words else None
+
+
+def report(payload):
+    show = payload.get("show", "")
+    c = payload.get("comment") or {}
+    info = SHOWS.get(show)
+    key = key_word(c.get("text", ""))
+    if not info or not key:
+        return {"memory_update": {"added": False, "event": None}}
+    for ev in info["events"]:
+        if key in ev["keys"]:
+            return {"memory_update": {"added": False, "event": {"id": ev.get("id"), "text": ev["text"], "episode": ev["episode"]}}}
+    ep = written_after_episode(show, c.get("posted_at")) or (payload.get("watched_episode", 0) + 1)
+    ev = {"id": f"r{len(info['events']) + 1}", "text": f"{key} 관련 장면 (신고)", "episode": ep, "keys": [key], "reported": True}
+    info["events"].append(ev)
+    return {"memory_update": {"added": True, "event": {"id": ev["id"], "text": ev["text"], "episode": ep}}}
 
 
 def judge(payload, reason=False):
@@ -113,12 +150,16 @@ def judge(payload, reason=False):
     for c in payload.get("comments", []):
         text = c.get("text", "")
         ctype, p = classify(text)
+        ev = match_event(show, text)
         # 흉내용 잡음: 실제 모델처럼 약간 흔들리게
         rng = random.Random(hash(text) & 0xFFFFFFFF)
         p = p + rng.uniform(-0.08, 0.08)
         if reason:
             # 추론 모드 흉내: 애매한 확률을 더 분명한 쪽으로 밀어줌
             p = p + (0.15 if p >= 0.5 else -0.15)
+        if ev and ev.get("reported"):
+            # 사용자 신고로 쌓인 사건과 같은 얘기 → 키워드 없이 돌려 말해도 스포로 봄
+            ctype, p = "결과 공개", max(p, 0.82)
         p = round(max(0.01, min(0.99, p)), 2)
         results.append(
             {
@@ -126,8 +167,13 @@ def judge(payload, reason=False):
                 "p_spoiler": p,
                 "type": ctype,
                 "written_after_episode": written_after_episode(show, c.get("posted_at")),
-                "matched_event": match_event(show, text) if ctype in ("결과 공개", "유출 주장", "루머·추측") else None,
+                "matched_event": (
+                    {k: ev[k] for k in ("text", "episode", "p")}
+                    if ev and ctype in ("결과 공개", "유출 주장", "루머·추측")
+                    else None
+                ),
                 "reasoned": bool(reason),
+                "memory_update": None,
             }
         )
     return {"results": results, "engine": "mock-rules"}
@@ -166,7 +212,7 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         url = urlparse(self.path)
-        if url.path != "/judge":
+        if url.path not in ("/judge", "/report"):
             self.send_error(404)
             return
         length = int(self.headers.get("Content-Length", 0))
@@ -174,6 +220,9 @@ class Handler(SimpleHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length) or b"{}")
         except json.JSONDecodeError:
             self.send_error(400, "invalid json")
+            return
+        if url.path == "/report":
+            self._json(report(payload))
             return
         reason = parse_qs(url.query).get("reason", ["false"])[0] == "true"
         time.sleep(0.4 if reason else 0.05)  # 추론 모드는 느리다는 걸 흉내

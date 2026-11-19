@@ -47,3 +47,13 @@
 .bdk-hud .bdk-memlist { max-height: 220px; overflow: auto; margin: 6px 0 0; padding-left: 16px; }
 .bdk-hud .bdk-memlist li { margin: 2px 0; }
 .bdk-hud .bdk-locked { color: #9aa0a6; }
+/* 추천 영상 카드: 배지를 카드 위에 띄워서 유튜브 배치를 건드리지 않음 */
+.bdk-video { position: relative; }
+.bdk-video > .bdk-badge {
+  position: absolute; z-index: 5; top: 4px; left: 4px; margin: 0; max-width: calc(100% - 8px);
+  background: rgba(255,255,255,.96); border-radius: 8px; padding: 3px 6px; box-shadow: 0 1px 6px rgba(0,0,0,.2);
+}
+.bdk-hud .bdk-fresh { color: #ffd36b; font-weight: 600; }
+/* 보이는 추천 영상은 배지를 숨겼다가 마우스를 올리면 보여줌 (제목을 덮지 않게) */
+.bdk-video.bdk-show > .bdk-badge, .bdk-video.bdk-error > .bdk-badge { opacity: 0; transition: opacity .15s; }
+.bdk-video.bdk-show:hover > .bdk-badge, .bdk-video.bdk-error:hover > .bdk-badge { opacity: 1; }

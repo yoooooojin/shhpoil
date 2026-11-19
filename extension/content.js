@@ -11,9 +11,11 @@
   window.__shhpoilLoaded = true;
 
   const VERSION = chrome.runtime.getManifest().version;
-  const site = (window.BDK_SITES || []).find((s) => s.match(location));
-  console.log(`[쉿스포] v${VERSION} 실행됨 · 사이트: ${site?.name || "해당 없음"}`);
-  if (!site) return;
+  // 한 페이지에서 여러 어댑터를 같이 씀 (예: 유튜브 댓글 + 추천 영상 제목)
+  const sites = (window.BDK_SITES || []).filter((s) => s.match(location));
+  console.log(`[쉿스포] v${VERSION} 실행됨 · 사이트: ${sites.map((s) => s.name).join(", ") || "해당 없음"}`);
+  if (!sites.length) return;
+  const siteOfEl = new WeakMap(); // 화면 요소 → 그 요소를 찾은 어댑터
 
   const DEFAULTS = {
     enabled: true,
@@ -38,7 +40,7 @@
   // ---------------------------------------------------------------- 관찰
   function idOf(el) {
     // 사이트가 고유 번호를 주면 그걸 씀 (유튜브: 댓글 번호) → 화면이 다시 그려져도 같은 글로 인식
-    const siteId = site.idOf?.(el);
+    const siteId = siteOfEl.get(el)?.idOf?.(el);
     if (siteId) return (el.dataset.bdkId = siteId);
     if (!el.dataset.bdkId) el.dataset.bdkId = el.dataset.id || `bdk-${++seq}`;
     return el.dataset.bdkId;
@@ -57,26 +59,36 @@
   );
 
   function scan(root = document) {
-    for (const el of site.items(root)) {
+    for (const site of sites)
+      for (const el of site.items(root)) {
+        siteOfEl.set(el, site);
+        scanOne(el, site);
+      }
+  }
+
+  function scanOne(el, site) {
+    {
       const id = idOf(el);
       const known = state.get(id);
       if (known) {
         // 같은 글인데 화면 요소가 새로 그려진 경우 (유튜브, 시연 페이지 탭 전환): 결과를 다시 입힘
         if (known.el !== el) {
           known.el = el;
-          markItem(el);
+          markItem(el, site);
           if (["hide", "blur", "show", "error"].includes(known.status))
             setStatus(id, known.status);
           else if (settings.enabled) el.classList.add("bdk-pending");
           io.observe(el);
         }
-        continue;
+        return;
       }
       const text = site.text(el);
-      if (!text) continue;
+      if (!text) return;
       const t = site.postedAt(el); // { iso, exact } 또는 null
       state.set(id, {
         el,
+        site,
+        kind: site.kind || "comment",
         text,
         postedAt: t?.iso || null,
         timeExact: !!t?.exact,
@@ -84,15 +96,16 @@
         result: null,
         status: "new",
       });
-      markItem(el);
+      markItem(el, site);
       if (settings.enabled) el.classList.add("bdk-pending");
       io.observe(el);
     }
   }
 
   // 흐리게 할 부분을 표시 (사이트가 지정하면 본문만, 아니면 요소 전체)
-  function markItem(el) {
+  function markItem(el, site) {
     el.classList.add("bdk-item");
+    if (site.kind === "video") el.classList.add("bdk-video");
     const target = site.blurTarget?.(el);
     if (target) {
       el.classList.add("bdk-has-target");
@@ -167,9 +180,14 @@
 
   // 정확한 작성 시각이 없는 글은 사이트별 방법으로 채움 (유튜브: YouTube Data API)
   async function resolveTimes(ids) {
-    if (!site.resolveTimes) return;
-    const need = ids.filter((id) => !state.get(id).timeExact);
-    if (!need.length) return;
+    for (const site of sites) {
+      if (!site.resolveTimes) continue;
+      const need = ids.filter((id) => state.get(id).site === site && !state.get(id).timeExact);
+      if (need.length) await resolveTimesFor(site, need);
+    }
+  }
+
+  async function resolveTimesFor(site, need) {
     try {
       const times = await site.resolveTimes(need); // { id: iso }
       for (const [id, iso] of Object.entries(times || {})) {
@@ -357,9 +375,11 @@
     b.className = "bdk-badge";
     b.dataset.for = id;
     // 유튜브는 Trusted Types 보안 정책 때문에 innerHTML을 막아서, 요소를 하나씩 만들어 붙임
-    const label = { hide: "스포 가림", blur: "스포 의심" }[status];
+    const label = (s.kind === "video" ? { hide: "제목 스포 가림", blur: "제목 스포 의심" } : { hide: "스포 가림", blur: "스포 의심" })[status];
     if (label) b.append(h("span", { class: `bdk-label bdk-${status}` }, label));
-    if (s.short) b.append(h("span", { class: "bdk-reason" }, s.short));
+    // 짧은 이유: 가린 글엔 항상, 보이는 글엔 "이미 본 N화 내용"일 때만 (나머지는 ⓘ에)
+    if (s.short && (label || s.short.startsWith("이미 본")))
+      b.append(h("span", { class: "bdk-reason" }, s.short));
     if (status === "hide" || status === "blur") {
       b.append(
         h("button", { "data-act": "reveal" }, "보기"),
@@ -383,7 +403,7 @@
       e.stopPropagation();
       onFeedback(id, act);
     });
-    (site.badgeHost?.(el) || el).prepend(b);
+    (s.site.badgeHost?.(el) || el).prepend(b);
   }
 
   // ---------------------------------------------------------------- 학습
@@ -428,6 +448,9 @@
       toast("확장이 새로고침됐어요. 이 페이지도 새로고침해 주세요.");
       console.warn("[쉿스포] 학습 저장 실패:", e);
     }
+    // "스포였음" → 판단 엔진에 신고해서 이 사건을 기억장에 추가 (다른 영상의 비슷한 글까지 잡게)
+    if (act === "wasspoiler" && settings.mode !== "keyword") report(id);
+
     // 같은 종류의 다른 글들도 새 기준으로 다시 결정
     if (type)
       for (const [otherId, o] of state)
@@ -440,10 +463,20 @@
   let memOpen = false;
   function remember(id, r) {
     const m = r.matched_event;
-    if (!m || !m.text || m.p < 0.5) return;
-    let e = memory.get(m.text);
-    if (!e) memory.set(m.text, (e = { episode: m.episode, ids: new Set() }));
-    e.ids.add(id);
+    if (m && m.text && m.p >= 0.5) rememberEvent(m, id);
+    // 판단하다가 엔진이 기억장에 새 사건을 추가했으면 바로 보여줌
+    if (r.memory_update?.added && r.memory_update.event) rememberEvent(r.memory_update.event, id, true);
+  }
+
+  function rememberEvent(ev, id, fresh = false) {
+    let e = memory.get(ev.text);
+    if (!e) memory.set(ev.text, (e = { episode: ev.episode, ids: new Set() }));
+    if (id) e.ids.add(id);
+    if (fresh) {
+      e.freshUntil = Date.now() + 20_000;
+      memOpen = true; // 새 사건이 들어오면 패널을 펼쳐서 보여줌
+      setTimeout(refreshCounts, 20_500);
+    }
   }
 
   function memoryView() {
@@ -462,12 +495,34 @@
       list.append(
         h(
           "li",
-          { class: isLocked ? "bdk-locked" : "" },
-          `${e.episode}화 · ${isLocked ? "🔒 아직 안 본 사건" : text} (댓글 ${e.ids.size})`,
+          { class: e.freshUntil > Date.now() ? "bdk-fresh" : isLocked ? "bdk-locked" : "" },
+          `${e.freshUntil > Date.now() ? "🆕 " : ""}${e.episode}화 · ${isLocked ? "🔒 아직 안 본 사건" : text} (글 ${e.ids.size})`,
         ),
       );
     }
     return [head, list];
+  }
+
+  // ---------------------------------------------------------------- 커뮤니티 학습: 스포 신고 → 기억장
+  function report(id) {
+    const s = state.get(id);
+    const payload = {
+      show: settings.show,
+      watched_episode: settings.watchedEpisode,
+      comment: { id, text: s.text, posted_at: s.postedAt, context: s.context },
+    };
+    chrome.runtime.sendMessage({ type: "report", payload }, (res) => {
+      if (chrome.runtime.lastError || !res?.ok) {
+        console.warn("[쉿스포] 스포 신고 실패 (판단 엔진에 /report가 없을 수 있음):", res?.error);
+        return;
+      }
+      const mu = res.data?.memory_update;
+      if (!mu?.event) return toast("신고 고마워요. 이 글은 계속 가릴게요");
+      rememberEvent(mu.event, id, !!mu.added);
+      if (!mu.added) return toast(`이미 기억장에 있는 ${mu.event.episode}화 사건이에요`);
+      toast(`🧠 기억장에 ${mu.event.episode}화 사건 추가 → 비슷한 글을 다시 살펴볼게요`);
+      rejudgeAll(); // 새 사건으로 화면의 모든 글을 다시 판단 (돌려 말한 글까지)
+    });
   }
 
   // ---------------------------------------------------------------- 상태 표시

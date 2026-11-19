@@ -83,7 +83,70 @@ window.BDK_SITES = [
         );
       }),
   },
+  {
+    // 시연 페이지의 "다음 동영상" 목록 (제목 스포 가리기)
+    name: "demo-videos",
+    kind: "video",
+    match: (loc) => ["localhost", "127.0.0.1"].includes(loc.hostname),
+    items: (root) => root.querySelectorAll("[data-bdk-video]"),
+    idOf: (el) => (el.dataset.vid ? `v:${el.dataset.vid}` : null),
+    text: (el) => (el.querySelector(".t")?.textContent || "").trim(),
+    postedAt: (el) => (el.dataset.published ? { iso: el.dataset.published, exact: true } : null),
+    context: (el) => `[추천 영상 제목] ${el.querySelector(".m")?.textContent?.split("·")[0]?.trim() || ""}`,
+    blurTarget: null,
+    badgeHost: (el) => el,
+  },
+  {
+    // 실제 유튜브: 영상 옆 추천 목록, 홈, 검색 결과의 영상 카드 (제목·썸네일 스포 가리기)
+    // 유튜브는 카드 구조를 자주 바꿔서 옛 구조(ytd-*-renderer)와 새 구조(yt-lockup-view-model)를 같이 찾음
+    name: "youtube-videos",
+    kind: "video",
+    match: (loc) => loc.hostname === "www.youtube.com" || loc.hostname === "m.youtube.com",
+    items: (root) =>
+      [...root.querySelectorAll(VIDEO_CARD)].filter(
+        (el) => !el.parentElement?.closest(VIDEO_CARD) && !el.closest("#comments") && videoIdOf(el)
+      ),
+    idOf: (el) => {
+      const v = videoIdOf(el);
+      return v ? `v:${v}` : null;
+    },
+    text: (el) =>
+      (
+        el.querySelector("#video-title")?.textContent ||
+        el.querySelector("h3")?.textContent ||
+        el.querySelector("a[title]")?.getAttribute("title") ||
+        ""
+      ).trim(),
+    // 카드의 "10개월 전" 표시로 대략값 → resolveTimes로 정확한 업로드 시각
+    postedAt: (el) => {
+      const iso = window.BDK_parseRelative(el.textContent);
+      return iso ? { iso, exact: false } : null;
+    },
+    context: (el) =>
+      `[추천 영상 제목] ${(el.querySelector("#channel-name, ytd-channel-name")?.textContent || "").trim()}`,
+    blurTarget: null, // 썸네일·제목·채널 전체를 흐림
+    badgeHost: (el) => el,
+    resolveTimes: (ids) =>
+      new Promise((resolve) => {
+        const vids = ids.map((id) => id.slice(2));
+        chrome.runtime.sendMessage({ type: "ytVideoTimes", ids: vids }, (res) => {
+          const out = {};
+          for (const [v, iso] of Object.entries(res?.ok ? res.times : {})) out[`v:${v}`] = iso;
+          resolve(out);
+        });
+      }),
+  },
 ];
+
+const VIDEO_CARD =
+  "ytd-compact-video-renderer, yt-lockup-view-model, ytd-rich-item-renderer, ytd-video-renderer, ytd-grid-video-renderer";
+
+// 카드 안 영상 링크(/watch?v=… 또는 /shorts/…)에서 영상 번호를 꺼냄
+function videoIdOf(el) {
+  const href = el.querySelector("a[href*='watch?v='], a[href*='/shorts/']")?.getAttribute("href") || "";
+  const m = href.match(/[?&]v=([\w-]{11})/) || href.match(/\/shorts\/([\w-]{11})/);
+  return m ? m[1] : null;
+}
 
 // 댓글 시간 링크 주소(…&lc=댓글번호)에서 고유 번호를 꺼냄
 function commentIdOf(el) {

@@ -63,10 +63,46 @@ def variant():
     return os.environ.get("PROMPT_VARIANT", "A")
 
 
+# 애매한 글에서 에이전트가 더 달라고 할 수 있는 단서 (확장이 페이지에서 모아 다시 보냄)
+CLUES = {
+    "parent": "원댓글 전문 (이 글이 답글일 때)",
+    "replies": "이 댓글에 달린 답글들",
+    "description": "영상 설명과 고정 댓글",
+    "timestamp": "댓글에 적힌 시각(예: 12:20) 부근의 영상 내용·챕터",
+}
+CLUE_NONE = "필요 없음"
+CLUE_INSTRUCTIONS = "이 댓글이 스포일러인지 확실히 판단하려면 무엇을 더 보면 가장 도움이 되나요? 지금 정보로 충분하면 '필요 없음'."
+_CLUE_LIMIT = 300
+
+
+def _clip(x, n=_CLUE_LIMIT):
+    x = re.sub(r"\s+", " ", str(x or "")).strip()
+    return x if len(x) <= n else x[:n] + "…"
+
+
+def format_clues(clues):
+    """확장이 모아 온 단서를 Zoro state에 넣을 짧은 글로. 길이를 잘라 문맥이 너무 길어지지 않게."""
+    parts = []
+    if clues.get("parent"):
+        parts.append(f"원댓글: {_clip(clues['parent'])}")
+    if clues.get("replies"):
+        reps = [_clip(r, 100) for r in clues["replies"][:5] if r]
+        if reps:
+            parts.append("답글들: " + " / ".join(reps))
+    if clues.get("description"):
+        parts.append(f"영상 설명: {_clip(clues['description'])}")
+    if clues.get("timestamp"):
+        ts = clues["timestamp"]
+        parts.append(f"시각 정보: {_clip(ts if isinstance(ts, str) else ' '.join(str(v) for v in ts.values()))}")
+    return "\n".join(parts)
+
+
 def build_state(show, comment):
     state = {"작품": show, "댓글": comment["text"]}
     if comment.get("context"):  # 영상 제목. 답글이면 "\n원댓글: ..."이 붙어 옴
         state["문맥"] = comment["context"]
+    if comment.get("clues"):  # 에이전트가 요청해서 확장이 모아 온 단서
+        state["단서"] = format_clues(comment["clues"])
     return state
 
 
@@ -132,7 +168,7 @@ def candidate_events(events, show, text, limit=6):
     return [e for _, _, e in scored[:limit]]
 
 
-def build_questions(events, show=""):
+def build_questions(events, show="", ask_clue=False):
     v = variant()
     qs = {
         "type": {"type": "choice", "instructions": TYPE_INSTRUCTIONS[v], "criteria": TYPE_CRITERIA[v]},
@@ -141,6 +177,10 @@ def build_questions(events, show=""):
         crit = {e["text"]: event_desc(e, show) for e in events}
         crit[NONE_EVENT] = "목록의 어떤 사건과도 관계없음"
         qs["event"] = {"type": "choice", "instructions": EVENT_INSTRUCTIONS, "criteria": crit}
+    if ask_clue:
+        crit = dict(CLUES)
+        crit[CLUE_NONE] = "지금 정보로 충분히 판단할 수 있음"
+        qs["clue"] = {"type": "choice", "instructions": CLUE_INSTRUCTIONS, "criteria": crit}
     return qs
 
 

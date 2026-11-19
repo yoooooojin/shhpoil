@@ -34,7 +34,8 @@ window.BDK_SITES = [
   {
     // 시연 페이지 (mock-server가 띄우는 /demo/)
     name: "demo",
-    match: (loc) => ["localhost", "127.0.0.1"].includes(loc.hostname),
+    // 확장으로 여는 로컬 시연 페이지, 또는 웹 체험판(<html data-shhpoil-demo>)
+    match: (loc) => ["localhost", "127.0.0.1"].includes(loc.hostname) || document.documentElement.hasAttribute("data-shhpoil-demo"),
     items: (root) => root.querySelectorAll("[data-bdk-comment]"),
     idOf: (el) => el.dataset.id || null,
     text: (el) => (el.querySelector(".text")?.textContent || "").trim(),
@@ -93,7 +94,7 @@ window.BDK_SITES = [
     // 시연 페이지의 "다음 동영상" 목록 (제목 스포 가리기)
     name: "demo-videos",
     kind: "video",
-    match: (loc) => ["localhost", "127.0.0.1"].includes(loc.hostname),
+    match: (loc) => ["localhost", "127.0.0.1"].includes(loc.hostname) || document.documentElement.hasAttribute("data-shhpoil-demo"),
     items: (root) => root.querySelectorAll("[data-bdk-video]"),
     idOf: (el) => (el.dataset.vid ? `v:${el.dataset.vid}` : null),
     text: (el) => (el.querySelector(".t")?.textContent || "").trim(),

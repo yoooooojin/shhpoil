@@ -52,6 +52,20 @@ EVENT_INSTRUCTIONS_BY_VARIANT = {
 EVENT_VARIANT = os.environ.get("EVENT_VARIANT", "A")
 EVENT_INSTRUCTIONS = EVENT_INSTRUCTIONS_BY_VARIANT.get(EVENT_VARIANT, EVENT_INSTRUCTIONS_BY_VARIANT["A"])
 
+# 댓글로 기억장 만들기: 거르기 질문 (글 종류보다 '결과가 담겼나'를 직접 묻는 쪽이 훨씬 잘 갈림)
+HAS_RESULT_QUESTION = {"has_result": {
+    "type": "choice",
+    "instructions": "이 댓글에 방송에서 실제로 일어난 결과(탈락, 생존, 진출, 우승, 승패)가 담겨 있나요? 감상처럼 써도 결과를 알 수 있으면 '예'.",
+    "criteria": {"예": "실제 결과가 담겨 있음", "아니오": "결과가 없음 (감상, 응원, 질문, 추측)"}}}
+
+# 영상 제목을 같이 주고, '이분' 같은 말 대신 이름을 쓰게 (제목에 출연자 이름이 있는 경우가 많음)
+EXTRACT_WITH_TITLE_PROMPT = (
+    "다음은 '{show}' 리뷰 영상에 달린 댓글입니다. 이 댓글이 드러내는 방송 속 결과를 "
+    "'누가 무엇을 했다/됐다' 형식의 한 문장(25자 이내)으로만 쓰세요. '이분', '그분' 대신 이름이나 별명을 쓰고, "
+    "누구인지 알 수 없으면 '없음'만 쓰세요. 다른 말은 쓰지 마세요.\n"
+    "영상 제목: {title}\n댓글: {text}"
+)
+
 EXTRACT_PROMPT = (
     "다음은 '{show}' 관련 댓글입니다. 이 댓글이 드러내는 방송 속 사건을 "
     "'누가 무엇을 했다/됐다' 형식의 한 문장(25자 이내)으로만 쓰세요. 다른 말은 쓰지 마세요.\n"

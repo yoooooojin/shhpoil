@@ -79,7 +79,9 @@ def learn_event(show, text, episode, source):
         cands = _same_candidates(existing, text)  # 선택지가 많으면 확률이 흩어져 같은 사건도 '새 사건'이 됨
         ans = zoro_client.decide({"작품": pname(show), "문장": text}, Q.build_same_event_question(cands))["answers"]["same"]
         probs = ans.get("probabilities") or {ans["choice"]: 1.0}
-        best, p = max(probs.items(), key=lambda x: x[1])
+        # 비슷한 후보가 여럿이면 확률이 흩어진다 → '새 사건'이 아닌 쪽의 합으로 판단하고, 그중 가장 높은 것과 합침
+        p = sum(v for k_, v in probs.items() if k_ != "새 사건")
+        best = max(((k_, v) for k_, v in probs.items() if k_ != "새 사건"), key=lambda x: x[1], default=("새 사건", 0))[0]
         if best != "새 사건" and p >= SAME_P:
             memory.touch(show, best, episode)
             return f"  = {episode:>2}화  {text}  →  기존 '{best}'"
@@ -146,7 +148,9 @@ def learn_from_comment(show, text, episode, source):
         cands = _same_candidates(existing, text)
         ans = zoro_client.decide({"작품": pname(show), "문장": text}, Q.build_same_event_question(cands))["answers"]["same"]
         probs = ans.get("probabilities") or {ans["choice"]: 1.0}
-        best, p = max(probs.items(), key=lambda x: x[1])
+        # 비슷한 후보가 여럿이면 확률이 흩어진다 → '새 사건'이 아닌 쪽의 합으로 판단하고, 그중 가장 높은 것과 합침
+        p = sum(v for k_, v in probs.items() if k_ != "새 사건")
+        best = max(((k_, v) for k_, v in probs.items() if k_ != "새 사건"), key=lambda x: x[1], default=("새 사건", 0))[0]
         if best != "새 사건" and p >= SAME_P:
             memory.touch(show, best, episode)  # 더 이른 글이면 회차가 앞으로 (= 가장 이른 작성 시점)
             return "=", best
@@ -270,7 +274,7 @@ def build_from_comments(show, path, until=None, min_hits=2, review_out=None, fre
 def article_episode(show, a):
     if a.get("episode") is not None:
         return int(a["episode"])
-    return schedule.episode_after(show, a.get("published"))
+    return schedule.episode_after(pname(show), a.get("published"))  # '흑백요리사2_자동'도 흑백요리사2 일정으로
 
 
 def main():
@@ -334,8 +338,14 @@ def main():
             try:
                 text = fetch_text(a, pname(show))
             except Exception as e:  # noqa: BLE001
-                print(f"! 기사를 못 읽음 ({e}): {name}\n  → 본문을 .txt로 저장해서 \"file\"로 넣어 주세요")
-                continue
+                if a.get("fallback_text"):  # 사이트가 막으면 검색 결과의 제목+요약으로
+                    text = a["fallback_text"]
+                    print(f"! 본문을 못 읽어 제목·요약으로 ({e}): {name}")
+                else:
+                    print(f"! 기사를 못 읽음 ({e}): {name}\n  → 본문을 .txt로 저장해서 \"file\"로 넣어 주세요")
+                    continue
+            if len(text) < 200 and a.get("fallback_text") and a["fallback_text"] not in text:
+                text = a["fallback_text"] + "\n" + text
             found = extract(show, text)
             print(f"[{ep}화까지 공개 후] {name}  → 사건 {len(found)}개")
             for t in found:

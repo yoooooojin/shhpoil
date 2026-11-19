@@ -311,6 +311,9 @@ class Handler(SimpleHTTPRequestHandler):
                                 people=e.get("people"), aliases=e.get("aliases"), check=e.get("check"))
                      for e in body.get("events", [])]
             return self._json({"ok": True, "added": sum(1 for a in added if a)})
+        if u.path == "/memory/forget":  # {"show": ..., "source": "report"} 또는 {"show": ..., "ids": ["e26"]}
+            n = memory.forget(body.get("show", ""), source=body.get("source"), ids=body.get("ids"))
+            return self._json({"ok": True, "removed": n})
         if u.path == "/memory/reset":
             memory.reset(body.get("show", ""))
             return self._json({"ok": True})

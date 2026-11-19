@@ -40,6 +40,16 @@ def _save(show, events):
     os.replace(tmp, _path(show))
 
 
+def forget(show, source=None, ids=None):
+    """출처(source)나 id로 사건 지우기. 예: 시연 중 신고(/report)로 들어간 사건만 지우기 → source="report"."""
+    with _lock:
+        events = load(show)
+        keep = [e for e in events
+                if not ((source and e.get("source") == source) or (ids and e.get("id") in ids))]
+        _save(show, keep)
+        return len(events) - len(keep)
+
+
 def reset(show):
     with _lock:
         _save(show, [])

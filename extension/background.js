@@ -19,13 +19,20 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 });
 
 // 판단 엔진이 이 시간 안에 답하지 않으면 실패로 처리 (현장에서 Zoro 속도를 보고 조정)
-const JUDGE_TIMEOUT_MS = 10_000; // 일반 판정: 댓글 최대 20개
+// 기본값. 팝업의 "응답 대기 시간"으로 바꿀 수 있음 (추론 모드·신고는 그 2배)
+const JUDGE_TIMEOUT_MS = 10_000; // 일반 판정
 const REASON_TIMEOUT_MS = 20_000; // 추론 모드: 댓글 1개
+async function timeouts() {
+  const { timeoutSec } = await chrome.storage.local.get({ timeoutSec: JUDGE_TIMEOUT_MS / 1000 });
+  const judge = Math.max(1, Number(timeoutSec) || 10) * 1000;
+  return { judge, reason: judge * 2 };
+}
 
 async function handleJudge(msg) {
   const { serverUrl } = await chrome.storage.local.get(DEFAULTS);
   const url = `${serverUrl.replace(/\/$/, "")}/judge${msg.reason ? "?reason=true" : ""}`;
-  const limit = msg.reason ? REASON_TIMEOUT_MS : JUDGE_TIMEOUT_MS;
+  const t = await timeouts();
+  const limit = msg.reason ? t.reason : t.judge;
   const t0 = Date.now();
   let res;
   try {
@@ -113,7 +120,7 @@ async function handleReport(msg) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(msg.payload),
-    signal: AbortSignal.timeout(REASON_TIMEOUT_MS),
+    signal: AbortSignal.timeout((await timeouts()).reason),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return { data: await res.json() };

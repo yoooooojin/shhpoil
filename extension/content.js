@@ -25,13 +25,14 @@
     sensitivity: 0.5, // 0: 확실한 스포만 ~ 1: 조금이라도 의심되면
     keywords: "흑백요리사,최강록,우승,탈락",
     typeOffsets: {}, // 학습 결과: 글 종류별 기준 보정값
+    batchSize: 20, // 판단 엔진에 한 번에 보내는 글 수 (엔진이 느리면 줄이기)
     compare: false, // 키워드 방식이었다면 어땠을지 같이 표시 (비교 보기)
     overrides: {}, // 사용자가 직접 판정한 댓글: { 댓글id: { decision: "show" | "hide", ep: 누른 때의 본 회차 } }
   };
   // 저장만 바뀌고 화면 전체를 다시 판단할 필요는 없는 설정
   const LEARNING_KEYS = ["typeOffsets", "overrides"];
   // 다시 판단할 필요 없이 화면 표시만 바뀌는 설정
-  const DISPLAY_KEYS = ["compare"];
+  const DISPLAY_KEYS = ["compare", "batchSize", "timeoutSec"];
 
   let settings = { ...DEFAULTS };
   const state = new Map(); // id → { el, text, postedAt, result, status }
@@ -150,7 +151,7 @@
 
   async function flush() {
     if (!settings.enabled) return;
-    const ids = [...queue].slice(0, 20);
+    const ids = [...queue].slice(0, Math.max(1, Number(settings.batchSize) || 20));
     ids.forEach((id) => queue.delete(id));
     if (!ids.length) return;
 

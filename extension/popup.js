@@ -10,6 +10,8 @@ const DEFAULTS = {
   typeOffsets: {},
   overrides: {},
   compare: false,
+  batchSize: 20,
+  timeoutSec: 10,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -49,6 +51,8 @@ chrome.storage.local.get(DEFAULTS, (s) => {
   $("serverUrl").value = s.serverUrl;
   $("ytApiKey").value = s.ytApiKey;
   $("compare").checked = s.compare;
+  $("batchSize").value = s.batchSize;
+  $("timeoutSec").value = s.timeoutSec;
   renderMode(s.mode);
   renderOffsets(s.typeOffsets, s.overrides);
   checkHealth(s.serverUrl);
@@ -63,6 +67,8 @@ $("serverUrl").addEventListener("change", (e) => {
   save({ serverUrl: e.target.value.trim() });
   checkHealth(e.target.value.trim());
 });
+$("batchSize").addEventListener("change", (e) => save({ batchSize: Math.max(1, Number(e.target.value) || 20) }));
+$("timeoutSec").addEventListener("change", (e) => save({ timeoutSec: Math.max(1, Number(e.target.value) || 10) }));
 $("compare").addEventListener("change", (e) => save({ compare: e.target.checked }));
 $("ytApiKey").addEventListener("change", (e) => save({ ytApiKey: e.target.value.trim() }));
 document.querySelectorAll(".seg button").forEach((b) =>

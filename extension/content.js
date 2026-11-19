@@ -1096,8 +1096,9 @@
     if (!drag.on) return;
     drag.on = false;
     if (drag.moved) {
-      const r = hud.getBoundingClientRect();
-      chrome.storage.local.set({ hudPos: { x: r.left, y: r.top } });
+      anchor = anchorFromRect(hud.getBoundingClientRect());
+      applyAnchor();
+      chrome.storage.local.set({ hudPos: anchor });
       setTimeout(() => (drag.moved = false), 0); // 바로 뒤 click은 무시
     }
   });
@@ -1108,7 +1109,30 @@
     hud.style.top = `${Math.max(4, Math.min(innerHeight - hh - 4, y))}px`;
     hud.style.right = hud.style.bottom = "auto";
   }
-  chrome.storage.local.get("hudPos", ({ hudPos }) => hudPos && requestAnimationFrame(() => placeHud(hudPos.x, hudPos.y)));
+  // 위치는 "가장 가까운 모서리에서 얼마나 떨어졌나"로 기억 → 펼치거나 접어도 그 모서리에 붙은 채로 커지고, 화면 밖으로 안 나감
+  let anchor = { h: "right", v: "bottom", dx: 16, dy: 16 };
+  function anchorFromRect(r) {
+    const h = r.left + r.width / 2 < innerWidth / 2 ? "left" : "right";
+    const v = r.top + r.height / 2 < innerHeight / 2 ? "top" : "bottom";
+    return { h, v, dx: h === "left" ? r.left : innerWidth - r.right, dy: v === "top" ? r.top : innerHeight - r.bottom };
+  }
+  function applyAnchor() {
+    if (drag.on) return;
+    const w = hud.offsetWidth,
+      hh = hud.offsetHeight;
+    const dx = Math.max(4, Math.min(innerWidth - w - 4, anchor.dx));
+    const dy = Math.max(4, Math.min(innerHeight - hh - 4, anchor.dy));
+    hud.style.left = anchor.h === "left" ? `${dx}px` : "auto";
+    hud.style.right = anchor.h === "right" ? `${dx}px` : "auto";
+    hud.style.top = anchor.v === "top" ? `${dy}px` : "auto";
+    hud.style.bottom = anchor.v === "bottom" ? `${dy}px` : "auto";
+  }
+  addEventListener("resize", () => applyAnchor());
+  chrome.storage.local.get("hudPos", ({ hudPos }) => {
+    if (hudPos?.h) anchor = hudPos;
+    else if (hudPos && "x" in hudPos) anchor = anchorFromRect({ left: hudPos.x, top: hudPos.y, right: hudPos.x + hud.offsetWidth, bottom: hudPos.y + hud.offsetHeight, width: hud.offsetWidth, height: hud.offsetHeight }); // 예전 형식
+    requestAnimationFrame(applyAnchor);
+  });
 
   // 에이전트가 먼저 묻기: "N화까지 보셨나요?"
   function suggestEpisode(ep, why) {
@@ -1125,6 +1149,7 @@
     hudFrame = requestAnimationFrame(() => {
       hudFrame = 0;
       drawHud();
+      applyAnchor(); // 펼침·접힘·내용 변화로 크기가 바뀌어도 화면 안에, 붙어 있던 모서리 쪽으로
     });
   }
 

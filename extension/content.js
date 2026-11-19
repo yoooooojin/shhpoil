@@ -305,7 +305,10 @@
     const words = settings.keywords
       .split(",")
       .map((w) => w.trim())
-      .filter(Boolean);
+      .filter(Boolean)
+      // 엔진이 죽었을 때 대신 쓸 땐 작품 이름 같은 단어는 빼고 씀 (안 그러면 전부 가려짐)
+      // 키워드 모드(비교 시연)에선 그대로 둬서 "키워드 방식은 다 막는다"를 보여줌
+      .filter((w) => !fallback || !settings.show.includes(w));
     const hit = words.find((w) => s.text.includes(w));
     s.result = null;
     s.whyFull = s.whySafe =

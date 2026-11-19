@@ -57,3 +57,6 @@
 /* 보이는 추천 영상은 배지를 숨겼다가 마우스를 올리면 보여줌 (제목을 덮지 않게) */
 .bdk-video.bdk-show > .bdk-badge, .bdk-video.bdk-error > .bdk-badge { opacity: 0; transition: opacity .15s; }
 .bdk-video.bdk-show:hover > .bdk-badge, .bdk-video.bdk-error:hover > .bdk-badge { opacity: 1; }
+/* "보기"로 연 추천 영상: 배지가 제목을 덮지 않게 숨겼다가 마우스를 올리면 보여줌 */
+.bdk-video.bdk-revealed > .bdk-badge { opacity: 0; transition: opacity .15s; }
+.bdk-video.bdk-revealed:hover > .bdk-badge { opacity: 1; }

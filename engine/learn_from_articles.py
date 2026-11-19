@@ -79,7 +79,9 @@ def learn_event(show, text, episode, source):
         cands = _same_candidates(existing, text)  # 선택지가 많으면 확률이 흩어져 같은 사건도 '새 사건'이 됨
         ans = zoro_client.decide({"작품": pname(show), "문장": text}, Q.build_same_event_question(cands))["answers"]["same"]
         probs = ans.get("probabilities") or {ans["choice"]: 1.0}
-        best, p = max(probs.items(), key=lambda x: x[1])
+        # 비슷한 후보가 여럿이면 확률이 흩어진다 → '새 사건'이 아닌 쪽의 합으로 판단하고, 그중 가장 높은 것과 합침
+        p = sum(v for k_, v in probs.items() if k_ != "새 사건")
+        best = max(((k_, v) for k_, v in probs.items() if k_ != "새 사건"), key=lambda x: x[1], default=("새 사건", 0))[0]
         if best != "새 사건" and p >= SAME_P:
             memory.touch(show, best, episode)
             return f"  = {episode:>2}화  {text}  →  기존 '{best}'"
@@ -146,7 +148,9 @@ def learn_from_comment(show, text, episode, source):
         cands = _same_candidates(existing, text)
         ans = zoro_client.decide({"작품": pname(show), "문장": text}, Q.build_same_event_question(cands))["answers"]["same"]
         probs = ans.get("probabilities") or {ans["choice"]: 1.0}
-        best, p = max(probs.items(), key=lambda x: x[1])
+        # 비슷한 후보가 여럿이면 확률이 흩어진다 → '새 사건'이 아닌 쪽의 합으로 판단하고, 그중 가장 높은 것과 합침
+        p = sum(v for k_, v in probs.items() if k_ != "새 사건")
+        best = max(((k_, v) for k_, v in probs.items() if k_ != "새 사건"), key=lambda x: x[1], default=("새 사건", 0))[0]
         if best != "새 사건" and p >= SAME_P:
             memory.touch(show, best, episode)  # 더 이른 글이면 회차가 앞으로 (= 가장 이른 작성 시점)
             return "=", best

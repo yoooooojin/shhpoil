@@ -238,7 +238,7 @@ function logSummary(log) {
     cancelled: by("라우팅").filter((e) => e.event.includes("취소")).length,
     clueCancelled: by("라우팅").filter((e) => e.event.includes("취소") && e.kind === "clue").length,
     clueFailed: errs.filter((e) => e.event.startsWith("단서 보고")).length,
-    reaskFailed: errs.filter((e) => e.event.startsWith("추론 모드")).length,
+    reaskFailed: errs.filter((e) => e.event.startsWith("추론 모드") || e.event.startsWith("다시 묻기")).length,
     outages: errs.filter((e) => e.event.startsWith("엔진 끊김")).length,
     ...outagePeriods(log),
     hidden: count("가림"),
@@ -343,7 +343,6 @@ function toMarkdown(log) {
     if (e.comments != null) bits.push(`댓글 ${e.comments} · 영상 ${e.videos}`);
     if (e.ms != null) bits.push(`${e.ms}ms`);
     if (e.reasoned === true) bits.push(`Zoro 추론함${e.reasoning_ms != null ? ` (${e.reasoning_ms}ms)` : ""}`);
-    else if (e.reasoned === false) bits.push("Zoro 확신 → 추론 건너뜀");
     if (e.offset_before != null) bits.push(`보정 ${e.offset_before}%p → ${e.offset_after}%p`);
     if (e.fixed) bits.push(`${e.fixed.ep}화 기준으로 "${e.fixed.decision === "show" ? "보임" : "가림"}" 고정`);
     if (e.event_episode != null && e.stage === "학습") bits.push(`${e.event_episode}화 사건${e.event_text ? ` "${e.event_text}"` : ""}`);
@@ -374,11 +373,11 @@ function toMarkdown(log) {
     "| 항목 | 값 |",
     "| --- | --- |",
     `| Zoro-1 판정 요청 | ${s.judgeCalls}번 (처음 판정 ${s.firstCalls}번 · 글 ${s.judgedItems}개 · 다시 판정 ${s.judgeCalls - s.firstCalls}번) |`,
-    `| 응답 시간 평균 | 처음 판정 ${s.avgMs ?? "-"}ms (한 번에 여러 개) · 다시 판정 ${s.avgAgainMs ?? "-"}ms (글 1개, 추론 포함) |`,
+    `| 응답 시간 평균 | 처음 판정 ${s.avgMs ?? "-"}ms (한 번에 여러 개) · 다시 판정 ${s.avgAgainMs ?? "-"}ms (글 1개) |`,
     `| 라우팅: Zoro가 단서 요청 → 모아서 다시 판정 | ${s.clueAsked}개 → 다시 판정 ${s.clueJudged} · 실패 ${s.clueFailed}${pendingNote(s)} |`,
-    `| 라우팅: 애매해서 추론 모드로 다시 물음 | ${s.routed}개 → 응답 ${s.reasoned} · 실패 ${s.reaskFailed} |`,
+    `| 라우팅: 기준 근처라 애매해서 다시 물음 | ${s.routed}개 → 응답 ${s.reasoned} · 실패 ${s.reaskFailed} |`,
     `| 라우팅: 화면 전체 다시 판정으로 취소한 다시 묻기 | ${s.cancelled}개 (본 회차·꼼꼼함을 바꾸면 이전 질문은 버리고 새로 판정) |`,
-    `| 다시 판정에서 Zoro가 추론함 · 확신해서 건너뜀 | ${s.thought} · ${s.skipped} |`,
+    `| 다시 판정 중 Zoro 추론을 쓴 것 | ${s.thought}번 (다시 판정은 단서를 넣어 판단 기능으로 바로 물음) |`,
     `| 행동: 가림 · 흐림 · 그대로 | ${s.hidden} · ${s.blurred} · ${s.shown} |`,
     `| 행동: 영상 경고 · 미리보기 막음 | ${s.guard} · ${s.preview} |`,
     `| 학습: 사용자 반응 · 기억장 | ${s.learned} |`,

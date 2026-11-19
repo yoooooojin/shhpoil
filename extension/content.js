@@ -323,7 +323,7 @@
       }
       if (s.round !== round) return trace("라우팅", "화면 전체를 다시 판정해서 이 다시 묻기는 취소", { id, kind: "clue" });
       const got = Object.keys(clues);
-      trace("관찰", got.length ? `단서 모음: ${clueLabel(got)}` : "요청한 단서를 못 구함 → 단서 없이 추론 모드로", {
+      trace("관찰", got.length ? `단서 모음: ${clueLabel(got)}` : "요청한 단서를 못 구함 → 단서 없이 다시 판정", {
         id, need, got, missing: need.filter((k) => !got.includes(k)),
         clues: settings.logText ? clues : undefined,
       });
@@ -441,7 +441,7 @@
     }
     if (Math.abs(p - T) < 0.1 && !r.reasoned && !s.reasked && ahead) {
       // 애매함 → 일단 흐려 두고 추론 모드로 다시 묻기
-      trace("라우팅", "기준과 10%p 안쪽이라 애매함 → 일단 흐리고 추론 모드로 다시 묻기", base);
+      trace("라우팅", "기준과 10%p 안쪽이라 애매함 → 일단 흐리고 다시 묻기", base);
       setStatus(id, "blur");
       reask(id);
       return;
@@ -460,10 +460,10 @@
     if (s.round !== round || !res) return trace("라우팅", "화면 전체를 다시 판정해서 이 다시 묻기는 취소", { id, kind: "reason" });
     const r = res?.ok && res.data.results.find((x) => x.id === id);
     if (!r) {
-      trace("오류", "추론 모드 응답 실패 → 첫 판정으로 결정", { id, error: String(res?.error || "응답 없음") });
+      trace("오류", "다시 묻기 응답 실패 → 첫 판정으로 결정", { id, error: String(res?.error || "응답 없음") });
       return decide(id); // 실패하면 첫 판단 결과로 결정 (흐린 채로 멈추지 않게)
     }
-    trace("판단", `Zoro-1 다시 판정 받음 (${r.reasoned ? "Zoro가 추론함" : "Zoro가 확신해서 추론 건너뜀"})`, { id, ms: res.ms, reasoned: !!r.reasoned, reasoning_ms: r.reasoning_ms, type: r.type, p: pct(r.p_spoiler), before_p: pct(s.result?.p_spoiler), event_episode: r.matched_event?.episode ?? null, event_text: raw(r.matched_event?.text) });
+    trace("판단", `Zoro-1 다시 판정 받음${r.reasoned ? " (Zoro가 추론함)" : ""}`, { id, ms: res.ms, reasoned: !!r.reasoned, reasoning_ms: r.reasoning_ms, type: r.type, p: pct(r.p_spoiler), before_p: pct(s.result?.p_spoiler), event_episode: r.matched_event?.episode ?? null, event_text: raw(r.matched_event?.text) });
     stats.reasoned++;
     s.result = r;
     remember(id, r);
@@ -1207,7 +1207,7 @@
       h(
         "div",
         { class: "bdk-hud-line" },
-        `${settings.mode === "keyword" ? "키워드 모드" : "판정 모드"} · 가림 ${hidden} · 의심 ${blurred} · 추론 ${stats.reasoned}${stats.lastMs ? ` · ${stats.lastMs}ms` : ""}`,
+        `${settings.mode === "keyword" ? "키워드 모드" : "판정 모드"} · 가림 ${hidden} · 의심 ${blurred} · 다시 판정 ${stats.reasoned}${stats.lastMs ? ` · ${stats.lastMs}ms` : ""}`,
       ),
     );
     if (settings.compare && settings.mode !== "keyword") {

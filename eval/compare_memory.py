@@ -45,9 +45,7 @@ def best_match(show, text, cands, min_p):
                   "criteria": crit}}
     a = zoro_client.decide({"작품": show, "문장": text}, q)["answers"]["same"]
     probs = a.get("probabilities") or {a["choice"]: 1.0}
-    # 자동 기억장에 같은 사건이 여러 문장으로 있으면 확률이 흩어진다 → '없음'이 아닌 쪽의 합으로 판단
-    p = sum(v for k, v in probs.items() if k != NONE)
-    name = max(((k, v) for k, v in probs.items() if k != NONE), key=lambda x: x[1], default=(NONE, 0))[0]
+    name, p = max(probs.items(), key=lambda x: x[1])  # 보수적으로: 가장 높은 하나가 기준 이상일 때만 (합으로 하면 부풀려짐)
     return (name, p) if name != NONE and p >= min_p else (None, p)
 
 

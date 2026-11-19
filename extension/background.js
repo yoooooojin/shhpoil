@@ -34,9 +34,21 @@ function addBlocked(n) {
   });
 }
 
+// 에이전트 실행 로그 (팝업에서 시나리오별로 내려받음). 여러 탭에서 와도 순서대로 붙이게 줄 세움
+let logChain = Promise.resolve();
+function addLog(entries, tab) {
+  logChain = logChain.then(async () => {
+    const { agentLog = [], logOn } = await chrome.storage.local.get(["agentLog", "logOn"]);
+    if (!logOn || !entries?.length) return;
+    for (const e of entries) e.tab = tab;
+    await chrome.storage.local.set({ agentLog: agentLog.concat(entries).slice(-5000) });
+  });
+}
+
 chrome.runtime.onMessage.addListener((msg, sender) => {
   if (msg.type === "badge") setBadge(sender.tab?.id, msg.count);
   else if (msg.type === "blocked") addBlocked(msg.count || 1);
+  else if (msg.type === "log") addLog(msg.entries, sender.tab?.id);
 });
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {

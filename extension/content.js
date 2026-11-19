@@ -28,12 +28,14 @@
     guardVideo: true, // 지금 보는 영상 자체가 스포면 재생 전에 경고
     batchSize: 20, // 판단 엔진에 한 번에 보내는 글 수 (엔진이 느리면 줄이기)
     compare: false, // 키워드 방식이었다면 어땠을지 같이 표시 (비교 보기)
+    logOn: false, // 실행 로그 기록 (팝업에서 켬)
+    logText: false, // 실행 로그에 글 원문까지 남길지
     overrides: {}, // 사용자가 직접 판정한 댓글: { 댓글id: { decision: "show" | "hide", ep: 누른 때의 본 회차 } }
   };
   // 저장만 바뀌고 화면 전체를 다시 판단할 필요는 없는 설정
   const LEARNING_KEYS = ["typeOffsets", "overrides"];
   // 다시 판단할 필요 없이 화면 표시만 바뀌는 설정
-  const DISPLAY_KEYS = ["compare", "batchSize", "timeoutSec", "feedbackLog", "stats", "hudPos", "onboarded"];
+  const DISPLAY_KEYS = ["compare", "batchSize", "timeoutSec", "feedbackLog", "stats", "hudPos", "onboarded", "logOn", "logText", "agentLog", "logScenario"];
 
   let settings = { ...DEFAULTS };
   const state = new Map(); // id → { el, text, postedAt, result, status }
@@ -41,6 +43,25 @@
   let flushTimer = null;
   let seq = 0;
   const stats = { judged: 0, hidden: 0, blurred: 0, reasoned: 0, lastMs: 0 };
+
+  // ---------------------------------------------------------------- 실행 로그 (관찰 → 판단 → 라우팅 → 행동 → 학습 흐름을 시간순으로 남김)
+  // 팝업에서 "실행 로그 기록"을 켰을 때만 남김. 글 원문은 "원문 포함"을 켰을 때만 (GitHub에 올릴 로그엔 빼기)
+  let logBuf = [];
+  let logTimer = null;
+  function trace(stage, event, data = {}) {
+    if (!settings.logOn) return;
+    const e = { t: new Date().toISOString(), stage, event, ...data };
+    for (const k of Object.keys(e)) if (e[k] === undefined) delete e[k];
+    logBuf.push(e);
+    logTimer ||= setTimeout(() => {
+      const entries = logBuf;
+      logBuf = [];
+      logTimer = null;
+      chrome.runtime.sendMessage({ type: "log", entries })?.catch?.(() => {});
+    }, 500);
+  }
+  const raw = (t) => (settings.logText ? t : undefined);
+  const pct = (x) => (x == null ? null : Math.round(x * 100));
 
   // ---------------------------------------------------------------- 관찰
   function idOf(el) {
@@ -180,6 +201,15 @@
     ids.forEach((id) => queue.delete(id));
     if (!ids.length) return;
 
+    const videos = ids.filter((id) => state.get(id).kind === "video").length;
+    trace("관찰", "화면에 들어온 글 모음", {
+      count: ids.length,
+      comments: ids.length - videos,
+      videos,
+      watched: settings.watchedEpisode,
+      mode: settings.mode,
+      items: ids.map((id) => ({ id, kind: state.get(id).kind, posted_at: state.get(id).postedAt, exact_time: state.get(id).timeExact, text: raw(state.get(id).text) })),
+    });
     if (settings.mode === "keyword") {
       ids.forEach((id) => applyKeyword(id));
     } else {
@@ -189,11 +219,26 @@
       if (!res?.ok) {
         // 판단 엔진이 죽거나 느리면: 키워드 방식으로 대신 가리고, 엔진이 살아나면 다시 판단
         console.warn("[쉿스포] 판단 엔진 연결 실패 → 키워드 모드로 대체:", res?.error);
-        ids.forEach((id) => applyKeyword(id, true));
+        trace("오류", "판단 엔진 응답 실패", { count: ids.length, error: String(res?.error || "응답 없음") });
         engineDown(true);
+        ids.forEach((id) => applyKeyword(id, true));
       } else {
         engineDown(false);
         stats.lastMs = res.ms;
+        trace("판단", "Zoro-1 판정 받음", {
+          count: res.data.results.length,
+          ms: res.ms,
+          engine: res.data.engine || res.data.model,
+          results: res.data.results.map((r) => ({
+            id: r.id,
+            type: r.type,
+            p: pct(r.p_spoiler),
+            event_episode: r.matched_event?.episode ?? null,
+            event_p: pct(r.matched_event?.p),
+            event_text: raw(r.matched_event?.text),
+            written_after: r.written_after_episode,
+          })),
+        });
         for (const r of res.data.results) {
           const s = state.get(r.id);
           if (!s) continue;
@@ -239,6 +284,7 @@
     down = isDown;
     clearInterval(healthTimer);
     if (isDown) {
+      trace("오류", "엔진 끊김 → 키워드 방식으로 대체, 5초마다 엔진 확인");
       toast("판단 엔진 연결 끊김 → 키워드 모드로 대체 중");
       // 5초마다 엔진이 살아났는지 확인
       healthTimer = setInterval(() => {
@@ -247,11 +293,14 @@
           engineDown(false);
           toast("판단 엔진 복구 → 다시 판정 모드로");
           // 키워드로 대신 처리했던 댓글만 다시 판단
+          let n = 0;
           for (const [id, s] of state)
             if (s.fallback) {
               s.fallback = false;
               enqueue(id);
+              n++;
             }
+          trace("복구", "엔진 다시 응답 → 키워드로 대신했던 글 다시 판정", { count: n });
         });
       }, 5000);
     }
@@ -289,7 +338,10 @@
     const s = state.get(id);
     // 사용자가 직접 "스포 아님 / 스포였음"을 누른 댓글은 그 결정을 그대로 따름
     const override = activeOverride(id);
-    if (override) return setStatus(id, override);
+    if (override) {
+      trace("행동", "사용자가 직접 정한 결정 유지", { id, status: override, decided_at_episode: settings.overrides[id]?.ep });
+      return setStatus(id, override);
+    }
     const r = s.result;
     const offset = settings.typeOffsets[r.type] || 0;
     const T = Math.min(0.95, Math.max(0.05, baseThreshold() + offset));
@@ -301,15 +353,19 @@
     s.short = shortWhy(r);
 
     // 다시 묻기는 댓글당 한 번만 (서버가 reasoned를 안 넣어 줘도 무한 반복하지 않게)
-    if (Math.abs(p - T) < 0.1 && !r.reasoned && !s.reasked && isAhead(r)) {
+    const ahead = isAhead(r);
+    const base = { id, kind: s.kind, type: r.type, p: pct(r.p_spoiler), p_used: pct(p), threshold: pct(T), episode: episodeOf(r), watched: settings.watchedEpisode, ahead, reasoned: !!r.reasoned };
+    if (Math.abs(p - T) < 0.1 && !r.reasoned && !s.reasked && ahead) {
       // 애매함 → 일단 흐려 두고 추론 모드로 다시 묻기
+      trace("라우팅", "기준과 10%p 안쪽이라 애매함 → 일단 흐리고 추론 모드로 다시 묻기", base);
       setStatus(id, "blur");
       reask(id);
       return;
     }
-    if (p >= T + 0.15) setStatus(id, "hide");
-    else if (p >= T) setStatus(id, "blur");
-    else setStatus(id, "show");
+    const status = p >= T + 0.15 ? "hide" : p >= T ? "blur" : "show";
+    const label = { hide: "가림", blur: "흐리게 (스포 의심)", show: "그대로 보임" }[status];
+    trace("행동", label, { ...base, why: ahead ? (status === "show" ? "기준보다 낮음" : "본 회차 뒤 내용") : "이미 본 회차 내용 (확률 ×0.1)" });
+    setStatus(id, status);
   }
 
   async function reask(id) {
@@ -319,7 +375,11 @@
     const res = await judge([id], true);
     if (s.round !== round) return;
     const r = res?.ok && res.data.results.find((x) => x.id === id);
-    if (!r) return decide(id); // 실패하면 첫 판단 결과로 결정 (흐린 채로 멈추지 않게)
+    if (!r) {
+      trace("오류", "추론 모드 응답 실패 → 첫 판정으로 결정", { id });
+      return decide(id); // 실패하면 첫 판단 결과로 결정 (흐린 채로 멈추지 않게)
+    }
+    trace("판단", "Zoro-1 추론 모드 판정 받음", { id, ms: res.ms, type: r.type, p: pct(r.p_spoiler), before_p: pct(s.result?.p_spoiler), event_episode: r.matched_event?.episode ?? null, event_text: raw(r.matched_event?.text) });
     stats.reasoned++;
     s.result = r;
     remember(id, r);
@@ -364,6 +424,7 @@
     s.whyFull = s.whySafe =
       (fallback ? "판단 엔진 연결 끊김 → 키워드로 대체 · " : "") + (hit ? `키워드 "${hit}" 포함` : "키워드 없음");
     s.short = hit ? `${fallback ? "키워드 대체 · " : ""}키워드 "${hit}"` : "";
+    trace("행동", `${fallback ? "키워드 대체" : "키워드 모드"} → ${hit ? "가림" : "그대로 보임"}`, { id, kind: s.kind, keyword: hit || null });
     setStatus(id, hit ? "hide" : "show");
   }
 
@@ -494,6 +555,7 @@
       return;
     }
     if (act === "reveal" || act === "rehide") {
+      trace("행동", act === "reveal" ? "사용자가 가린 글을 열어 봄" : "사용자가 다시 가림", { id, kind: s.kind });
       s.revealed = act === "reveal";
       setStatus(id, s.status); // 열림/닫힘 상태로 다시 그림 (열리면 이유에 사건 내용도 표시)
       return;
@@ -520,10 +582,15 @@
         ...settings.typeOffsets,
         [type]: Math.max(-0.3, Math.min(0.3, Math.round(next * 100) / 100)),
       };
+      trace("학습", `사용자: ${act === "notspoiler" ? "스포 아님" : "스포였어요"} → "${type}" 기준 ${act === "notspoiler" ? "느슨하게" : "엄격하게"}`, {
+        id, kind: s.kind, was: s.status, type, offset_before: pct(cur), offset_after: pct(settings.typeOffsets[type]),
+        fixed: { decision, ep: settings.watchedEpisode }, text: raw(s.text),
+      });
       toast(
         `"${type}" 기준을 ${act === "notspoiler" ? "느슨하게" : "엄격하게"} 조정했어요 (${settings.typeOffsets[type] > 0 ? "+" : ""}${Math.round(settings.typeOffsets[type] * 100)}%p)`,
       );
     } else {
+      trace("학습", `사용자: ${act === "notspoiler" ? "스포 아님" : "스포였어요"} → 이 글에 결정 고정`, { id, kind: s.kind, fixed: { decision, ep: settings.watchedEpisode } });
       toast(decision === "show" ? "이 댓글은 계속 보여줄게요" : "이 댓글은 계속 가릴게요");
     }
     try {
@@ -540,9 +607,11 @@
     if (act === "wasspoiler" && settings.mode !== "keyword") report(id);
 
     // 같은 종류의 다른 글들도 새 기준으로 다시 결정
-    if (type)
-      for (const [otherId, o] of state)
-        if (otherId !== id && o.result?.type === type) decide(otherId);
+    if (type) {
+      const others = [...state].filter(([otherId, o]) => otherId !== id && o.result?.type === type);
+      if (others.length) trace("학습", `같은 종류("${type}") 글 ${others.length}개를 새 기준으로 다시 결정`, { count: others.length });
+      for (const [otherId] of others) decide(otherId);
+    }
   }
 
   // ---------------------------------------------------------------- 스포 기억장 패널
@@ -710,6 +779,9 @@
       }
       console.log("[쉿스포]", guard.status, "| 제목:", cur.title, "| 업로드:", posted);
     }
+    trace(verdict ? "행동" : "판단", verdict ? "지금 보는 영상이 안 본 회차 → 일시정지하고 경고" : "지금 보는 영상 확인 → 그대로 재생", {
+      id: `cur:${cur.vid}`, kind: "current-video", result: guard.status, title: raw(cur.title),
+    });
     if (guard.vid !== cur.vid) return; // 기다리는 사이 다른 영상으로 넘어감
     refreshCounts();
     if (verdict) showGuard(cur, verdict);
@@ -733,6 +805,10 @@
     const s = m && state.get(`v:${m[1]}`);
     const blocked = !!s && settings.enabled && (s.status === "hide" || s.status === "blur") && !s.revealed;
     host.classList.toggle("bdk-preview-blocked", blocked);
+    if (blocked && host.dataset.bdkLogged !== m[1]) {
+      host.dataset.bdkLogged = m[1];
+      trace("행동", "가린 영상의 미리보기 재생 막음", { id: `v:${m[1]}` });
+    } else if (!blocked) delete host.dataset.bdkLogged;
     return blocked;
   }
   for (const type of ["play", "playing", "timeupdate"])
@@ -772,6 +848,7 @@
       if (!act) return;
       e.preventDefault();
       e.stopPropagation();
+      trace("행동", act === "back" ? "사용자: 영상 경고에서 뒤로 가기" : "사용자: 영상 경고에서 그래도 볼래요", { id: `cur:${cur.vid}` });
       if (act === "back") history.back();
       else {
         guard.dismissed.add(`${cur.vid}@${settings.watchedEpisode}`);
@@ -865,9 +942,13 @@
     chrome.runtime.sendMessage({ type: "report", payload }, (res) => {
       if (chrome.runtime.lastError || !res?.ok) {
         console.warn("[쉿스포] 스포 신고 실패 (판단 엔진에 /report가 없을 수 있음):", res?.error);
+        trace("오류", "스포 신고 실패 (글은 계속 가림)", { id, error: String(res?.error || "응답 없음") });
         return;
       }
       const mu = res.data?.memory_update;
+      trace("학습", mu?.added ? "스포 기억장에 새 사건 추가 → 화면 전체 다시 판정" : mu?.event ? "이미 기억장에 있는 사건" : "신고 접수 (새 사건 없음)", {
+        id, added: !!mu?.added, event_id: mu?.event?.id, event_episode: mu?.event?.episode ?? null, event_text: raw(mu?.event?.text),
+      });
       if (!mu?.event) return toast("신고 고마워요. 이 글은 계속 가릴게요");
       rememberEvent(mu.event, id, !!mu.added);
       if (!mu.added) return toast(`이미 기억장에 있는 ${mu.event.episode}화 사건이에요`);
@@ -1037,7 +1118,7 @@
     }
     if (down && settings.mode !== "keyword")
       hud.append(h("div", { class: "bdk-warn" }, "⚠ 판단 엔진 연결 끊김 → 키워드로 대체 중"));
-    hud.append(h("div", { class: "bdk-hud-ver" }, `v${VERSION} · 끌어서 옮길 수 있어요`));
+    hud.append(h("div", { class: "bdk-hud-ver" }, `v${VERSION} · ${settings.logOn ? "● 실행 로그 기록 중" : "끌어서 옮길 수 있어요"}`));
   }
 
   // 작은 요소 생성 도우미 (innerHTML 대신)
@@ -1090,9 +1171,18 @@
     // ("스포 아님 / 스포였음"으로 직접 판정한 건 누른 회차 기준으로 따로 유지됨)
     if (learningReset || changes.watchedEpisode || changes.show)
       for (const s of state.values()) s.revealed = false;
-    if (!onlyLearning || learningReset) rejudgeAll();
+    if (!onlyLearning || learningReset) {
+      const changed = Object.fromEntries(
+        Object.entries(changes)
+          .filter(([k]) => !DISPLAY_KEYS.includes(k) && k !== "ytApiKey")
+          .map(([k, v]) => [k, { from: v.oldValue, to: v.newValue }]),
+      );
+      if (changes.overrides) changed.overrides = "초기화";
+      trace("관찰", "설정 바뀜 → 화면의 글 전체 다시 판정", { changed, count: state.size });
+      rejudgeAll();
+    }
     if (changes.watchedEpisode && nudge && settings.watchedEpisode >= nudge.ep) nudge = null;
-    if (changes.watchedEpisode || changes.show || changes.enabled) refreshCounts();
+    if (changes.watchedEpisode || changes.show || changes.enabled || changes.logOn) refreshCounts();
     if (changes.watchedEpisode || changes.show || changes.mode || changes.sensitivity || changes.enabled || changes.guardVideo)
       checkCurrentVideo(true);
   });

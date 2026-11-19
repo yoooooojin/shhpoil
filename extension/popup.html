@@ -96,6 +96,19 @@
     <button class="link" id="fbDownload">CSV 내려받기</button> · <button class="link" id="fbClear">비우기</button>
   </details>
 
+  <details id="logBox">
+    <summary>에이전트 실행 로그</summary>
+    <label class="switch"><span>실행 로그 기록</span><input type="checkbox" id="logOn"></label>
+    <label>시나리오 이름</label>
+    <input type="text" id="logScenario" placeholder="예: 1_3화까지_판정">
+    <div class="small" style="margin-top:4px">관찰 → 판단 → 라우팅 → 행동 → 학습이 시간순으로 쌓여요. 시나리오마다 <b>새로 시작</b>을 누르고, 끝나면 내려받으세요.</div>
+    <div class="small" id="logCount" style="margin-top:6px">아직 없음</div>
+    <label class="switch"><span>글 원문도 남기기 (GitHub에 올릴 땐 끄기)</span><input type="checkbox" id="logText"></label>
+    <button class="link" id="logStart">새로 시작</button> ·
+    <button class="link" id="logMd">Markdown</button> ·
+    <button class="link" id="logJson">JSON</button> 내려받기
+  </details>
+
   <div class="foot">
     <button class="link" id="openOnboarding">처음 안내 다시 보기</button>
     <span class="small" id="ver"></span>

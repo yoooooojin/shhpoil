@@ -14,6 +14,9 @@ const DEFAULTS = {
   batchSize: 20,
   timeoutSec: 10,
   stats: {},
+  logOn: false,
+  logText: false,
+  logScenario: "",
 };
 
 const $ = (id) => document.getElementById(id);
@@ -68,6 +71,10 @@ chrome.storage.local.get(DEFAULTS, (s) => {
   $("ytApiKey").value = s.ytApiKey;
   $("compare").checked = s.compare;
   $("guardVideo").checked = s.guardVideo;
+  $("logOn").checked = s.logOn;
+  $("logText").checked = s.logText;
+  $("logScenario").value = s.logScenario || "";
+  if (s.logOn) $("logBox").open = true;
   $("batchSize").value = s.batchSize;
   $("timeoutSec").value = s.timeoutSec;
   renderMode(s.mode);
@@ -156,10 +163,165 @@ $("fbClear").addEventListener("click", () => {
   renderFb([]);
 });
 
+// ---------------------------------------------------------------- 에이전트 실행 로그 (제출용 시나리오 로그)
+const STAGES = ["시작", "관찰", "판단", "라우팅", "행동", "학습", "오류", "복구"];
+function logSummary(log) {
+  const by = (st) => log.filter((e) => e.stage === st);
+  const judged = by("판단").filter((e) => e.event.startsWith("Zoro-1 판정"));
+  const ms = judged.map((e) => e.ms).filter((x) => x != null);
+  const acts = by("행동");
+  const count = (w) => acts.filter((e) => e.event === w || e.event.endsWith(`→ ${w}`)).length;
+  return {
+    lines: log.length,
+    judgeCalls: judged.length,
+    judgedItems: judged.reduce((n, e) => n + (e.count || 0), 0),
+    avgMs: ms.length ? Math.round(ms.reduce((a, b) => a + b, 0) / ms.length) : null,
+    reasoned: by("판단").filter((e) => e.event.includes("추론 모드")).length,
+    routed: by("라우팅").length,
+    hidden: count("가림"),
+    blurred: acts.filter((e) => e.event.startsWith("흐리게")).length,
+    shown: count("그대로 보임"),
+    guard: acts.filter((e) => e.event.includes("일시정지")).length,
+    preview: acts.filter((e) => e.event.includes("미리보기")).length,
+    learned: by("학습").length,
+    errors: by("오류").length,
+    recovered: by("복구").length,
+  };
+}
+function renderLog(log = []) {
+  if (!log.length) return ($("logCount").textContent = "아직 없음");
+  const s = logSummary(log);
+  $("logCount").textContent = `${s.lines}줄 · 판정 ${s.judgeCalls}번 · 가림 ${s.hidden} · 흐림 ${s.blurred} · 학습 ${s.learned}${s.errors ? ` · 오류 ${s.errors}` : ""}`;
+}
+chrome.storage.local.get({ agentLog: [] }, (s) => renderLog(s.agentLog));
+$("logOn").addEventListener("change", (e) => {
+  save({ logOn: e.target.checked });
+  if (e.target.checked) $("logBox").open = true;
+});
+$("logText").addEventListener("change", (e) => save({ logText: e.target.checked }));
+$("logScenario").addEventListener("change", (e) => save({ logScenario: e.target.value.trim() }));
+$("logStart").addEventListener("click", () =>
+  chrome.storage.local.get(DEFAULTS, (st) => {
+    const name = $("logScenario").value.trim() || st.logScenario || "시나리오";
+    const start = {
+      t: new Date().toISOString(),
+      stage: "시작",
+      event: `시나리오 "${name}" 시작`,
+      scenario: name,
+      settings: {
+        show: st.show, watched: st.watchedEpisode, sensitivity: st.sensitivity, mode: st.mode,
+        engine: st.serverUrl, batchSize: st.batchSize, timeoutSec: st.timeoutSec,
+        typeOffsets: st.typeOffsets, overrides: Object.keys(st.overrides || {}).length, logText: st.logText,
+      },
+      version: chrome.runtime.getManifest().version,
+    };
+    save({ logOn: true, logScenario: name, agentLog: [start] });
+    $("logOn").checked = true;
+    renderLog([start]);
+  })
+);
+
+function download(name, text, type) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+const fileBase = (log) => {
+  const name = (log.find((e) => e.scenario)?.scenario || "log").replace(/[\\/:*?"<>|\s]+/g, "_");
+  return `shhpoil_log_${name}_${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "")}`;
+};
+$("logJson").addEventListener("click", () =>
+  chrome.storage.local.get({ agentLog: [] }, ({ agentLog }) => {
+    if (!agentLog.length) return;
+    const out = { scenario: agentLog.find((e) => e.scenario)?.scenario || null, summary: logSummary(agentLog), entries: agentLog };
+    download(fileBase(agentLog) + ".json", JSON.stringify(out, null, 2), "application/json");
+  })
+);
+$("logMd").addEventListener("click", () =>
+  chrome.storage.local.get({ agentLog: [] }, ({ agentLog }) => {
+    if (!agentLog.length) return;
+    download(fileBase(agentLog) + ".md", toMarkdown(agentLog), "text/markdown;charset=utf-8");
+  })
+);
+
+// 사람이 읽는 로그: 요약 + 시간순 표 (판정 결과는 글마다 한 줄)
+function toMarkdown(log) {
+  const start = log.find((e) => e.stage === "시작");
+  const st = start?.settings || {};
+  const s = logSummary(log);
+  const two = (n, w = 2) => String(n).padStart(w, "0");
+  const time = (iso) => {
+    const d = new Date(iso);
+    return `${two(d.getHours())}:${two(d.getMinutes())}:${two(d.getSeconds())}.${two(d.getMilliseconds(), 3)}`;
+  };
+  const esc = (v) => String(v ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
+  const detail = (e) => {
+    const bits = [];
+    if (e.id) bits.push(`\`${e.id}\``);
+    if (e.type) bits.push(e.type);
+    if (e.p != null) bits.push(`확률 ${e.p}%` + (e.p_used != null && e.p_used !== e.p ? ` (반영 ${e.p_used}%)` : ""));
+    if (e.before_p != null) bits.push(`처음 ${e.before_p}%`);
+    if (e.threshold != null) bits.push(`기준 ${e.threshold}%`);
+    if (e.episode != null) bits.push(`${e.episode}화 내용`);
+    if (e.watched != null && e.stage !== "관찰") bits.push(`본 회차 ${e.watched}화`);
+    if (e.why) bits.push(e.why);
+    if (e.keyword) bits.push(`키워드 "${e.keyword}"`);
+    if (e.count != null) bits.push(`${e.count}개`);
+    if (e.comments != null) bits.push(`댓글 ${e.comments} · 영상 ${e.videos}`);
+    if (e.ms != null) bits.push(`${e.ms}ms`);
+    if (e.offset_before != null) bits.push(`보정 ${e.offset_before}%p → ${e.offset_after}%p`);
+    if (e.fixed) bits.push(`${e.fixed.ep}화 기준으로 "${e.fixed.decision === "show" ? "보임" : "가림"}" 고정`);
+    if (e.event_episode != null && e.stage === "학습") bits.push(`${e.event_episode}화 사건${e.event_text ? ` "${e.event_text}"` : ""}`);
+    if (e.result) bits.push(e.result);
+    if (e.changed) bits.push(Object.entries(e.changed).map(([k, v]) => (typeof v === "object" ? `${k} ${JSON.stringify(v.from)}→${JSON.stringify(v.to)}` : `${k} ${v}`)).join(", "));
+    if (e.error) bits.push(`오류: ${e.error}`);
+    if (e.text || e.title) bits.push(`“${e.text || e.title}”`);
+    return bits.join(" · ");
+  };
+  const rows = [];
+  for (const e of log) {
+    if (e.stage === "시작") continue;
+    rows.push(`| ${time(e.t)} | ${e.stage} | ${esc(e.event)} | ${esc(detail(e))} |`);
+    // Zoro-1 판정은 글마다 하위 줄로 펼침
+    if (e.results)
+      for (const r of e.results)
+        rows.push(`|  |  | ↳ \`${esc(r.id)}\` | ${esc([r.type, `확률 ${r.p}%`, r.event_episode != null ? `${r.event_episode}화 사건 (${r.event_p}%)${r.event_text ? ` "${r.event_text}"` : ""}` : "사건 없음", r.written_after != null ? `${r.written_after}화 공개 후 작성` : "작성 시점 모름"].join(" · "))} |`);
+  }
+  return [
+    `# 쉿스포 에이전트 실행 로그: ${start?.scenario || "시나리오"}`,
+    "",
+    `- 기록: ${log[0] ? new Date(log[0].t).toLocaleString("ko-KR") : ""} ~ ${new Date(log[log.length - 1].t).toLocaleString("ko-KR")}`,
+    `- 설정: ${st.show ?? ""} · ${st.watched ?? "?"}화까지 봄 · 꼼꼼함 ${st.sensitivity ?? "?"} · 판정 방식 ${st.mode === "keyword" ? "키워드" : "Zoro-1"} · 한 번에 ${st.batchSize ?? "?"}개 · 대기 ${st.timeoutSec ?? "?"}초`,
+    `- 확장 버전: ${start?.version || chrome.runtime.getManifest().version}${st.logText ? "" : " · 글 원문은 기록하지 않음 (ID만)"}`,
+    "",
+    "## 요약",
+    "",
+    "| 항목 | 값 |",
+    "| --- | --- |",
+    `| Zoro-1 판정 요청 | ${s.judgeCalls}번 (글 ${s.judgedItems}개${s.avgMs != null ? `, 평균 ${s.avgMs}ms` : ""}) |`,
+    `| 라우팅: 애매해서 추론 모드로 다시 물음 | ${s.routed}개 (응답 ${s.reasoned}개) |`,
+    `| 행동: 가림 · 흐림 · 그대로 | ${s.hidden} · ${s.blurred} · ${s.shown} |`,
+    `| 행동: 영상 경고 · 미리보기 막음 | ${s.guard} · ${s.preview} |`,
+    `| 학습: 사용자 반응 · 기억장 | ${s.learned} |`,
+    `| 오류 → 복구 | ${s.errors} → ${s.recovered} |`,
+    "",
+    "## 흐름",
+    "",
+    "| 시각 | 단계 | 한 일 | 내용 |",
+    "| --- | --- | --- | --- |",
+    ...rows,
+    "",
+  ].join("\n");
+}
+
 // ---------------------------------------------------------------- 팝업이 열려 있는 동안 바뀐 값 바로 반영
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "local") return;
   if (changes.feedbackLog) renderFb(changes.feedbackLog.newValue);
+  if (changes.agentLog) renderLog(changes.agentLog.newValue || []);
   if (changes.stats) renderStats(changes.stats.newValue);
   if (changes.watchedEpisode) $("watchedEpisode").value = changes.watchedEpisode.newValue;
   if (changes.typeOffsets || changes.overrides)

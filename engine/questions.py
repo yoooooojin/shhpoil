@@ -259,6 +259,22 @@ SHEET_CRITERIA = {
 }
 
 
+# 예시 (SHEET_FEWSHOT=1): Nishi & Suzuki (RANLP 2025)에서 효과가 가장 컸던 힌트.
+# 평가 데이터가 새지 않게 '다른(가상) 작품'으로, 직접 스포·돌려 말한 스포·감상·별 내용 없는 글을 2개씩.
+SHEET_EXAMPLES = (
+    "\n\n예시 (가상의 요리 예능 '불꽃셰프', 시청자는 5화까지 봄. 안 본 내용: 8화 '김민준 결승 진출', "
+    "9화 '박서연 우승, 결승 메뉴 된장 리조또', 7화 '이도윤 팀전 탈락'):\n"
+    "- \"박서연 우승할 줄 알았다\" → 알게 됨 (결과를 직접 말함)\n"
+    "- \"이도윤 팀전에서 떨어질 때 너무 아쉬웠음\" → 알게 됨 (탈락을 직접 말함)\n"
+    "- \"결승에서 된장 리조또 나올 때 소름\" → 알게 됨 (이름 없이 결승 메뉴로 돌려 말함)\n"
+    "- \"마지막에 둘이 껴안는 장면에서 울었다 김민준 수고했어요\" → 알게 됨 (결승 장면과 진출자를 짐작하게 함)\n"
+    "- \"박서연 셰프 칼질 진짜 멋있다\" → 모름 (칭찬일 뿐 결과 없음)\n"
+    "- \"김민준 우승할 것 같은데 다들 어떻게 생각함?\" → 모름 (근거 없는 예상)\n"
+    "- \"3화 심사 너무 웃겼음 ㅋㅋ\" → 모름 (이미 본 회차 이야기)\n"
+    "- \"이 채널 편집 잘한다\" → 모름 (작품 결과와 무관)"
+)
+
+
 # 3단계 (SHEET_LEVELS=3): 돌려 말한 글이 '모름'으로 쏠리지 않게 중간 칸을 둔다
 SHEET_SURE = "확실히 알게 됨"
 SHEET_HINT = "짐작하게 됨"
@@ -298,9 +314,10 @@ def build_sheet_state(show, comment, events, w, max_seen=12):
     return state, len(later)
 
 
-def build_sheet_question(levels=2):
+def build_sheet_question(levels=2, fewshot=False):
     crit = SHEET_CRITERIA3 if levels == 3 else SHEET_CRITERIA
-    return {"reveal": {"type": "choice", "instructions": SHEET_INSTRUCTIONS, "criteria": dict(crit)}}
+    ins = SHEET_INSTRUCTIONS + (SHEET_EXAMPLES if fewshot and levels != 3 else "")
+    return {"reveal": {"type": "choice", "instructions": ins, "criteria": dict(crit)}}
 
 
 def sheet_prob(probs, levels=2, half=0.5):

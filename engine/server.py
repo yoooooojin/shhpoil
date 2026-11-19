@@ -87,12 +87,13 @@ def judge_one(show, w, c, reason, sync_memory):
     probs = t.get("probabilities") or {t["choice"]: 1.0}
     ptype = {name: float(probs.get(name, 0.0)) for name in Q.TYPES}
 
-    later, none_p, matched = 0.0, 1.0, None
+    later, later_max, none_p, matched = 0.0, 0.0, 1.0, None
     if events and "event" in ans:
         ev = ans["event"].get("probabilities") or {}
         by_text = {e["text"]: e for e in events}
         none_p = float(ev.get(Q.NONE_EVENT, 0.0))
         later = sum(p for name, p in ev.items() if name in by_text and by_text[name]["episode"] > w)
+        later_max = max([p for name, p in ev.items() if name in by_text and by_text[name]["episode"] > w], default=0.0)
         best = max(((name, p) for name, p in ev.items() if name in by_text), key=lambda x: x[1], default=None)
         if best and best[1] >= MATCH_REPORT_P:
             e = by_text[best[0]]
@@ -101,7 +102,7 @@ def judge_one(show, w, c, reason, sync_memory):
     p = (ptype["결과 공개"] * (later + none_p * _after(k, w, approx))
          + ptype["유출 주장"] * (later + none_p * (1.0 if (k is None or k >= w) else 0.5))
          + ptype["루머·추측"] * later
-         + ptype["감상·출연자 이야기"] * later * W_REACTION)
+         + ptype["감상·출연자 이야기"] * later_max * W_REACTION)  # 감상은 사건 하나를 확실히 짚을 때만 (여러 사건에 흩어진 확률 합은 안 씀)
     p = max(0.0, min(1.0, p))
 
     # 행동: 확실한 스포에서 사건을 배운다

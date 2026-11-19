@@ -3,6 +3,7 @@
 PROMPT_VARIANT 환경변수로 후보를 고른다 (기본 A).
 """
 import os
+import re
 
 TYPES = ["결과 공개", "유출 주장", "루머·추측", "감상·출연자 이야기", "무관"]
 NONE_EVENT = "해당 없음"
@@ -32,8 +33,10 @@ TYPE_INSTRUCTIONS = {
 EVENT_INSTRUCTIONS_BY_VARIANT = {
     "A": "이 댓글이 아래 사건 중 어떤 것을 드러내거나 암시하나요? 돌려 말한 표현도 포함합니다. 어느 것도 아니면 '해당 없음'.",
     # B: 출연자 이름만 나온 감상을 사건과 엮지 않도록 (송유진 님이 찾은 잘못 가린 글)
-    "B": ("이 댓글을 읽은 사람이 아래 사건의 결과(누가 이기고 졌는지, 진출·탈락·우승했는지)를 알게 되나요? "
-          "돌려 말한 표현도 포함합니다. 출연자 이름이 나오거나 출연자를 칭찬·응원하는 것만으로는 알게 되지 않으니 '해당 없음'입니다."),
+    "B": ("이 댓글을 읽은 사람이 아래 사건의 결과나 전개(누가 이기고 졌는지, 진출·탈락·우승했는지, "
+          "누가 특별 심사위원 등으로 새로 등장했는지)를 알게 되나요? "
+          "돌려 말한 표현도 포함합니다. 출연자 이름이 나오거나 출연자를 칭찬·응원하는 것, "
+          "앞으로 그렇게 되길 바라는 말('~했으면', '~가 주세요')만으로는 알게 되지 않으니 '해당 없음'입니다."),
 }
 EVENT_VARIANT = os.environ.get("EVENT_VARIANT", "A")
 EVENT_INSTRUCTIONS = EVENT_INSTRUCTIONS_BY_VARIANT.get(EVENT_VARIANT, EVENT_INSTRUCTIONS_BY_VARIANT["A"])
@@ -102,11 +105,16 @@ def candidate_events(events, show, text, limit=6):
     선택지가 적을수록 Zoro가 빠르고 덜 헷갈린다. 아무도 안 나오면 [] (사건 질문 생략).
     """
     table = people_aliases(show) if show else {}
+    flat = re.sub(r"\s+", "", text)  # 띄어쓰기 무시: "아기맹수" = "아기 맹수"
+
+    def has(k):
+        return re.sub(r"\s+", "", k) in flat
+
     scored = []
     for e in events:
         people = e.get("people") or []
-        hit = sum(1 for p in people if any(k in text for k in _name_keys(p, table.get(p) or [])))
-        hit += sum(1 for a in e.get("aliases") or [] if a and a in text)
+        hit = sum(1 for p in people if any(has(k) for k in _name_keys(p, table.get(p) or [])))
+        hit += sum(1 for a in e.get("aliases") or [] if a and has(a))  # 사건 열쇠말 (메뉴, 라운드 이름 등)
         if hit:
             scored.append((hit, e.get("hits", 1), e))
     scored.sort(key=lambda x: (-x[0], -x[1], -x[2]["episode"]))

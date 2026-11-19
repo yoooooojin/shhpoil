@@ -162,6 +162,9 @@ def candidate_events(events, show, text, limit=6):
         people = e.get("people") or []
         hit = sum(1 for p in people if any(has(k) for k in _name_keys(p, table.get(p) or [])))
         hit += sum(1 for a in e.get("aliases") or [] if a and has(a))  # 사건 열쇠말 (메뉴, 라운드 이름 등)
+        if not people and not e.get("aliases"):  # 자동으로 만든 사건처럼 인물·열쇠말이 없으면 단어 겹침으로
+            words = {w for w in re.findall(r"[가-힣A-Za-z0-9]{2,}", e["text"])}
+            hit += sum(1 for w_ in words if w_ in flat)
         if hit:
             scored.append((hit, e.get("hits", 1), e))
     scored.sort(key=lambda x: (-x[0], -x[1], -x[2]["episode"]))

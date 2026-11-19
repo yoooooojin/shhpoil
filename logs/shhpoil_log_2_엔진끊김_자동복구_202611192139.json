@@ -1,18 +1,18 @@
 {
   "scenario": "2_엔진끊김_자동복구",
   "summary": {
-    "lines": 76,
-    "judgeCalls": 14,
+    "lines": 65,
+    "judgeCalls": 10,
     "firstCalls": 3,
     "judgedItems": 22,
-    "avgMs": 987,
-    "avgAgainMs": 460,
+    "avgMs": 760,
+    "avgAgainMs": 469,
     "reasoned": 3,
     "thought": 0,
-    "skipped": 11,
-    "routed": 2,
-    "clueAsked": 6,
-    "clueJudged": 8,
+    "skipped": 7,
+    "routed": 3,
+    "clueAsked": 4,
+    "clueJudged": 4,
     "cancelled": 0,
     "clueCancelled": 0,
     "clueFailed": 0,
@@ -21,9 +21,9 @@
     "outagePeriods": 1,
     "outageClosed": 1,
     "outageTabs": 1,
-    "hidden": 1,
-    "blurred": 5,
-    "shown": 30,
+    "hidden": 5,
+    "blurred": 3,
+    "shown": 25,
     "guard": 0,
     "preview": 0,
     "learned": 0,
@@ -44,121 +44,11 @@
         "show": "흑백요리사2",
         "timeoutSec": 10,
         "typeOffsets": {},
-        "watched": 2
+        "watched": 3
       },
       "stage": "시작",
-      "t": "2026-11-19T16:53:30.329Z",
-      "version": "0.8.2"
-    },
-    {
-      "before_p": 37,
-      "event": "Zoro-1이 영상 설명을 더 보고 다시 판정",
-      "event_episode": null,
-      "id": "c8",
-      "ms": 459,
-      "p": 30,
-      "reasoned": false,
-      "stage": "판단",
-      "t": "2026-11-19T16:53:30.407Z",
-      "tab": 2019147897,
-      "type": "감상·출연자 이야기",
-      "used_clues": [
-        "description"
-      ]
-    },
-    {
-      "ahead": true,
-      "episode": 7,
-      "event": "그대로 보임",
-      "id": "c8",
-      "kind": "comment",
-      "p": 30,
-      "p_used": 30,
-      "reasoned": false,
-      "stage": "행동",
-      "t": "2026-11-19T16:53:30.407Z",
-      "tab": 2019147897,
-      "threshold": 57,
-      "type": "감상·출연자 이야기",
-      "watched": 2,
-      "why": "기준보다 낮음"
-    },
-    {
-      "event": "단서 모음: 영상 설명",
-      "got": [
-        "description"
-      ],
-      "id": "c16",
-      "missing": [],
-      "need": [
-        "description"
-      ],
-      "stage": "관찰",
-      "t": "2026-11-19T16:53:30.808Z",
-      "tab": 2019147897
-    },
-    {
-      "before_p": 51,
-      "event": "Zoro-1이 영상 설명을 더 보고 다시 판정",
-      "event_episode": 13,
-      "id": "c16",
-      "ms": 443,
-      "p": 55,
-      "reasoned": false,
-      "stage": "판단",
-      "t": "2026-11-19T16:53:31.253Z",
-      "tab": 2019147897,
-      "type": "감상·출연자 이야기",
-      "used_clues": [
-        "description"
-      ]
-    },
-    {
-      "ahead": true,
-      "episode": 13,
-      "event": "그대로 보임",
-      "id": "c16",
-      "kind": "comment",
-      "p": 55,
-      "p_used": 55,
-      "reasoned": false,
-      "stage": "행동",
-      "t": "2026-11-19T16:53:31.253Z",
-      "tab": 2019147897,
-      "threshold": 57,
-      "type": "감상·출연자 이야기",
-      "watched": 2,
-      "why": "기준보다 낮음"
-    },
-    {
-      "before_p": 63,
-      "event": "Zoro-1 다시 판정 받음 (Zoro가 확신해서 추론 건너뜀)",
-      "event_episode": 13,
-      "id": "v:v4",
-      "ms": 450,
-      "p": 63,
-      "reasoned": false,
-      "stage": "판단",
-      "t": "2026-11-19T16:53:31.705Z",
-      "tab": 2019147897,
-      "type": "결과 공개"
-    },
-    {
-      "ahead": true,
-      "episode": 13,
-      "event": "흐리게 (스포 의심)",
-      "id": "v:v4",
-      "kind": "video",
-      "p": 63,
-      "p_used": 63,
-      "reasoned": false,
-      "stage": "행동",
-      "t": "2026-11-19T16:53:31.705Z",
-      "tab": 2019147897,
-      "threshold": 57,
-      "type": "결과 공개",
-      "watched": 2,
-      "why": "본 회차 뒤 내용"
+      "t": "2026-11-19T21:37:38.143Z",
+      "version": "0.8.9"
     },
     {
       "comments": 5,
@@ -167,33 +57,33 @@
       "items": [
         {
           "exact_time": true,
-          "id": "c7",
+          "id": "c2",
           "kind": "comment",
-          "posted_at": "2025-12-23T22:01:00+09:00"
+          "posted_at": "2025-12-16T21:20:00+09:00"
         },
         {
           "exact_time": true,
-          "id": "c8",
+          "id": "c3",
           "kind": "comment",
-          "posted_at": "2025-12-23T22:15:00+09:00"
+          "posted_at": "2025-12-16T21:35:00+09:00"
         },
         {
           "exact_time": true,
-          "id": "c9",
+          "id": "c4",
           "kind": "comment",
-          "posted_at": "2025-12-23T23:05:00+09:00"
+          "posted_at": "2025-12-16T22:02:00+09:00"
         },
         {
           "exact_time": true,
-          "id": "c17",
+          "id": "c5",
           "kind": "comment",
-          "posted_at": "2025-12-23T23:20:00+09:00"
+          "posted_at": "2025-12-16T22:40:00+09:00"
         },
         {
           "exact_time": true,
-          "id": "c16",
+          "id": "c15",
           "kind": "comment",
-          "posted_at": "2026-01-16T09:05:00+09:00"
+          "posted_at": "2026-01-15T10:20:00+09:00"
         },
         {
           "exact_time": true,
@@ -228,71 +118,71 @@
       ],
       "mode": "zoro",
       "stage": "관찰",
-      "t": "2026-11-19T16:53:32.121Z",
+      "t": "2026-11-19T21:37:40.810Z",
       "tab": 2019147897,
       "videos": 5,
-      "watched": 2
+      "watched": 3
     },
     {
       "event": "지금 보는 영상 확인 → 그대로 재생",
-      "id": "cur:v2",
+      "id": "cur:v1",
       "kind": "current-video",
-      "result": "지금 영상: 감상·출연자 이야기 39% (기준 57%) · 7화 → 기준 아래라 그대로",
+      "result": "지금 영상: 감상·출연자 이야기 2% (기준 57%) · 3화 → 이미 본 내용",
       "stage": "판단",
-      "t": "2026-11-19T16:53:32.475Z",
+      "t": "2026-11-19T21:37:41.148Z",
       "tab": 2019147897
     },
     {
       "count": 10,
       "engine": "zoro-1",
       "event": "Zoro-1 판정 받음",
-      "ms": 986,
+      "ms": 804,
       "results": [
         {
           "event_episode": null,
           "event_p": null,
-          "id": "c7",
-          "p": 15,
+          "id": "c2",
+          "p": 42,
           "type": "감상·출연자 이야기",
-          "written_after": 7
+          "written_after": 3
         },
         {
           "event_episode": null,
           "event_p": null,
-          "id": "c8",
-          "p": 36,
-          "type": "감상·출연자 이야기",
-          "written_after": 7
+          "id": "c3",
+          "p": 3,
+          "type": "결과 공개",
+          "written_after": 3
         },
         {
           "event_episode": null,
           "event_p": null,
-          "id": "c9",
-          "p": 13,
+          "id": "c4",
+          "p": 5,
           "type": "루머·추측",
-          "written_after": 7
+          "written_after": 3
         },
         {
           "event_episode": null,
           "event_p": null,
-          "id": "c17",
-          "p": 21,
-          "type": "감상·출연자 이야기",
-          "written_after": 7
+          "id": "c5",
+          "p": 8,
+          "type": "결과 공개",
+          "written_after": 3
         },
         {
           "event_episode": 13,
-          "event_p": 51,
-          "id": "c16",
-          "p": 51,
+          "event_p": 53,
+          "id": "c15",
+          "p": 57,
           "type": "감상·출연자 이야기",
           "written_after": 13
         },
         {
           "event_episode": 3,
-          "event_p": 43,
+          "event_p": 40,
           "id": "v:v1",
-          "p": 44,
+          "p": 1,
           "type": "감상·출연자 이야기",
           "written_after": 3
         },
@@ -300,7 +190,7 @@
           "event_episode": null,
           "event_p": null,
           "id": "v:v2",
-          "p": 35,
+          "p": 39,
           "type": "감상·출연자 이야기",
           "written_after": 7
         },
@@ -308,15 +198,15 @@
           "event_episode": null,
           "event_p": null,
           "id": "v:v3",
-          "p": 40,
+          "p": 27,
           "type": "감상·출연자 이야기",
           "written_after": 13
         },
         {
-          "event_episode": 13,
-          "event_p": 51,
+          "event_episode": null,
+          "event_p": null,
           "id": "v:v4",
-          "p": 63,
+          "p": 84,
           "type": "결과 공개",
           "written_after": 13
         },
@@ -324,120 +214,115 @@
           "event_episode": null,
           "event_p": null,
           "id": "v:v5",
-          "p": 7,
+          "p": 1,
           "type": "감상·출연자 이야기",
           "written_after": 3
         }
       ],
       "stage": "판단",
-      "t": "2026-11-19T16:53:33.110Z",
+      "t": "2026-11-19T21:37:41.617Z",
       "tab": 2019147897
     },
     {
-      "ahead": true,
-      "episode": 7,
+      "ahead": false,
+      "episode": 3,
       "event": "그대로 보임",
-      "id": "c7",
+      "id": "c2",
       "kind": "comment",
-      "p": 15,
-      "p_used": 15,
+      "p": 42,
+      "p_used": 4,
       "reasoned": false,
       "stage": "행동",
-      "t": "2026-11-19T16:53:33.111Z",
+      "t": "2026-11-19T21:37:41.617Z",
       "tab": 2019147897,
       "threshold": 57,
       "type": "감상·출연자 이야기",
-      "watched": 2,
-      "why": "기준보다 낮음"
+      "watched": 3,
+      "why": "이미 본 회차 내용 (확률 ×0.1)"
     },
     {
-      "ahead": true,
-      "episode": 7,
-      "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
-      "id": "c8",
-      "kind": "comment",
-      "need": [
-        "description"
-      ],
-      "p": 36,
-      "p_used": 36,
-      "reasoned": false,
-      "stage": "라우팅",
-      "t": "2026-11-19T16:53:33.111Z",
-      "tab": 2019147897,
-      "threshold": 57,
-      "type": "감상·출연자 이야기",
-      "watched": 2
-    },
-    {
-      "ahead": true,
-      "episode": 7,
+      "ahead": false,
+      "episode": 3,
       "event": "그대로 보임",
-      "id": "c9",
+      "id": "c3",
       "kind": "comment",
-      "p": 13,
-      "p_used": 13,
+      "p": 3,
+      "p_used": 0,
       "reasoned": false,
       "stage": "행동",
-      "t": "2026-11-19T16:53:33.112Z",
+      "t": "2026-11-19T21:37:41.618Z",
+      "tab": 2019147897,
+      "threshold": 57,
+      "type": "결과 공개",
+      "watched": 3,
+      "why": "이미 본 회차 내용 (확률 ×0.1)"
+    },
+    {
+      "ahead": false,
+      "episode": 3,
+      "event": "그대로 보임",
+      "id": "c4",
+      "kind": "comment",
+      "p": 5,
+      "p_used": 1,
+      "reasoned": false,
+      "stage": "행동",
+      "t": "2026-11-19T21:37:41.618Z",
       "tab": 2019147897,
       "threshold": 57,
       "type": "루머·추측",
-      "watched": 2,
-      "why": "기준보다 낮음"
+      "watched": 3,
+      "why": "이미 본 회차 내용 (확률 ×0.1)"
     },
     {
-      "ahead": true,
-      "episode": 7,
+      "ahead": false,
+      "episode": 3,
       "event": "그대로 보임",
-      "id": "c17",
+      "id": "c5",
       "kind": "comment",
-      "p": 21,
-      "p_used": 21,
+      "p": 8,
+      "p_used": 1,
       "reasoned": false,
       "stage": "행동",
-      "t": "2026-11-19T16:53:33.112Z",
+      "t": "2026-11-19T21:37:41.618Z",
       "tab": 2019147897,
       "threshold": 57,
-      "type": "감상·출연자 이야기",
-      "watched": 2,
-      "why": "기준보다 낮음"
+      "type": "결과 공개",
+      "watched": 3,
+      "why": "이미 본 회차 내용 (확률 ×0.1)"
     },
     {
       "ahead": true,
       "episode": 13,
-      "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
-      "id": "c16",
+      "event": "기준과 10%p 안쪽이라 애매함 → 일단 흐리고 다시 묻기",
+      "id": "c15",
       "kind": "comment",
-      "need": [
-        "description"
-      ],
-      "p": 51,
-      "p_used": 51,
+      "p": 57,
+      "p_used": 57,
       "reasoned": false,
       "stage": "라우팅",
-      "t": "2026-11-19T16:53:33.112Z",
+      "t": "2026-11-19T21:37:41.618Z",
       "tab": 2019147897,
       "threshold": 57,
       "type": "감상·출연자 이야기",
-      "watched": 2
+      "watched": 3
     },
     {
-      "ahead": true,
+      "ahead": false,
       "episode": 3,
       "event": "그대로 보임",
       "id": "v:v1",
       "kind": "video",
-      "p": 44,
-      "p_used": 44,
+      "p": 1,
+      "p_used": 0,
       "reasoned": false,
       "stage": "행동",
-      "t": "2026-11-19T16:53:33.112Z",
+      "t": "2026-11-19T21:37:41.618Z",
       "tab": 2019147897,
       "threshold": 57,
       "type": "감상·출연자 이야기",
-      "watched": 2,
-      "why": "기준보다 낮음"
+      "watched": 3,
+      "why": "이미 본 회차 내용 (확률 ×0.1)"
     },
     {
       "ahead": true,
@@ -445,15 +330,15 @@
       "event": "그대로 보임",
       "id": "v:v2",
       "kind": "video",
-      "p": 35,
-      "p_used": 35,
+      "p": 39,
+      "p_used": 39,
       "reasoned": false,
       "stage": "행동",
-      "t": "2026-11-19T16:53:33.112Z",
+      "t": "2026-11-19T21:37:41.618Z",
       "tab": 2019147897,
       "threshold": 57,
       "type": "감상·출연자 이야기",
-      "watched": 2,
+      "watched": 3,
       "why": "기준보다 낮음"
     },
     {
@@ -462,63 +347,80 @@
       "event": "그대로 보임",
       "id": "v:v3",
       "kind": "video",
-      "p": 40,
-      "p_used": 40,
+      "p": 27,
+      "p_used": 27,
       "reasoned": false,
       "stage": "행동",
-      "t": "2026-11-19T16:53:33.112Z",
+      "t": "2026-11-19T21:37:41.618Z",
       "tab": 2019147897,
       "threshold": 57,
       "type": "감상·출연자 이야기",
-      "watched": 2,
+      "watched": 3,
       "why": "기준보다 낮음"
     },
     {
       "ahead": true,
       "episode": 13,
-      "event": "기준과 10%p 안쪽이라 애매함 → 일단 흐리고 추론 모드로 다시 묻기",
+      "event": "가림",
       "id": "v:v4",
       "kind": "video",
-      "p": 63,
-      "p_used": 63,
+      "p": 84,
+      "p_used": 84,
       "reasoned": false,
-      "stage": "라우팅",
-      "t": "2026-11-19T16:53:33.112Z",
+      "stage": "행동",
+      "t": "2026-11-19T21:37:41.619Z",
       "tab": 2019147897,
       "threshold": 57,
       "type": "결과 공개",
-      "watched": 2
+      "watched": 3,
+      "why": "본 회차 뒤 내용"
     },
     {
-      "ahead": true,
+      "ahead": false,
       "episode": 3,
       "event": "그대로 보임",
       "id": "v:v5",
       "kind": "video",
-      "p": 7,
-      "p_used": 7,
+      "p": 1,
+      "p_used": 0,
       "reasoned": false,
       "stage": "행동",
-      "t": "2026-11-19T16:53:33.112Z",
+      "t": "2026-11-19T21:37:41.619Z",
       "tab": 2019147897,
       "threshold": 57,
       "type": "감상·출연자 이야기",
-      "watched": 2,
-      "why": "기준보다 낮음"
+      "watched": 3,
+      "why": "이미 본 회차 내용 (확률 ×0.1)"
     },
     {
-      "event": "단서 모음: 영상 설명",
-      "got": [
-        "description"
-      ],
-      "id": "c8",
-      "missing": [],
-      "need": [
-        "description"
-      ],
-      "stage": "관찰",
-      "t": "2026-11-19T16:53:33.515Z",
-      "tab": 2019147897
+      "before_p": 57,
+      "event": "Zoro-1 다시 판정 받음",
+      "event_episode": 13,
+      "id": "c15",
+      "ms": 442,
+      "p": 56,
+      "reasoned": false,
+      "stage": "판단",
+      "t": "2026-11-19T21:37:42.065Z",
+      "tab": 2019147897,
+      "type": "감상·출연자 이야기"
+    },
+    {
+      "ahead": true,
+      "episode": 13,
+      "event": "그대로 보임",
+      "id": "c15",
+      "kind": "comment",
+      "p": 56,
+      "p_used": 56,
+      "reasoned": false,
+      "stage": "행동",
+      "t": "2026-11-19T21:37:42.066Z",
+      "tab": 2019147897,
+      "threshold": 57,
+      "type": "감상·출연자 이야기",
+      "watched": 3,
+      "why": "기준보다 낮음"
     },
     {
       "comments": 1,
@@ -527,233 +429,74 @@
       "items": [
         {
           "exact_time": true,
-          "id": "c6",
+          "id": "c1",
           "kind": "comment",
-          "posted_at": "2025-12-23T21:45:00+09:00"
+          "posted_at": "2025-12-16T21:14:00+09:00"
         }
       ],
       "mode": "zoro",
       "stage": "관찰",
-      "t": "2026-11-19T16:53:33.697Z",
+      "t": "2026-11-19T21:37:42.843Z",
       "tab": 2019147897,
       "videos": 0,
-      "watched": 2
-    },
-    {
-      "before_p": 36,
-      "event": "Zoro-1이 영상 설명을 더 보고 다시 판정",
-      "event_episode": null,
-      "id": "c8",
-      "ms": 430,
-      "p": 30,
-      "reasoned": false,
-      "stage": "판단",
-      "t": "2026-11-19T16:53:34.005Z",
-      "tab": 2019147897,
-      "type": "루머·추측",
-      "used_clues": [
-        "description"
-      ]
-    },
-    {
-      "ahead": true,
-      "episode": 7,
-      "event": "그대로 보임",
-      "id": "c8",
-      "kind": "comment",
-      "p": 30,
-      "p_used": 30,
-      "reasoned": false,
-      "stage": "행동",
-      "t": "2026-11-19T16:53:34.005Z",
-      "tab": 2019147897,
-      "threshold": 57,
-      "type": "루머·추측",
-      "watched": 2,
-      "why": "기준보다 낮음"
+      "watched": 3
     },
     {
       "count": 1,
       "engine": "zoro-1",
       "event": "Zoro-1 판정 받음",
-      "ms": 486,
+      "ms": 554,
       "results": [
         {
-          "event_episode": 7,
-          "event_p": 55,
-          "id": "c6",
-          "p": 59,
-          "type": "결과 공개",
-          "written_after": 7
+          "event_episode": 3,
+          "event_p": 41,
+          "id": "c1",
+          "p": 1,
+          "type": "감상·출연자 이야기",
+          "written_after": 3
         }
       ],
       "stage": "판단",
-      "t": "2026-11-19T16:53:34.186Z",
+      "t": "2026-11-19T21:37:43.402Z",
       "tab": 2019147897
     },
     {
-      "ahead": true,
-      "episode": 7,
-      "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
-      "id": "c6",
-      "kind": "comment",
-      "need": [
-        "description"
-      ],
-      "p": 59,
-      "p_used": 59,
-      "reasoned": false,
-      "stage": "라우팅",
-      "t": "2026-11-19T16:53:34.186Z",
-      "tab": 2019147897,
-      "threshold": 57,
-      "type": "결과 공개",
-      "watched": 2
-    },
-    {
-      "event": "단서 모음: 영상 설명",
-      "got": [
-        "description"
-      ],
-      "id": "c16",
-      "missing": [],
-      "need": [
-        "description"
-      ],
-      "stage": "관찰",
-      "t": "2026-11-19T16:53:34.407Z",
-      "tab": 2019147897
-    },
-    {
-      "before_p": 51,
-      "event": "Zoro-1이 영상 설명을 더 보고 다시 판정",
-      "event_episode": 13,
-      "id": "c16",
-      "ms": 436,
-      "p": 55,
-      "reasoned": false,
-      "stage": "판단",
-      "t": "2026-11-19T16:53:34.849Z",
-      "tab": 2019147897,
-      "type": "감상·출연자 이야기",
-      "used_clues": [
-        "description"
-      ]
-    },
-    {
-      "ahead": true,
-      "episode": 13,
+      "ahead": false,
+      "episode": 3,
       "event": "그대로 보임",
-      "id": "c16",
+      "id": "c1",
       "kind": "comment",
-      "p": 55,
-      "p_used": 55,
+      "p": 1,
+      "p_used": 0,
       "reasoned": false,
       "stage": "행동",
-      "t": "2026-11-19T16:53:34.849Z",
+      "t": "2026-11-19T21:37:43.402Z",
       "tab": 2019147897,
       "threshold": 57,
       "type": "감상·출연자 이야기",
-      "watched": 2,
-      "why": "기준보다 낮음"
-    },
-    {
-      "before_p": 63,
-      "event": "Zoro-1 다시 판정 받음 (Zoro가 확신해서 추론 건너뜀)",
-      "event_episode": 13,
-      "id": "v:v4",
-      "ms": 447,
-      "p": 64,
-      "reasoned": false,
-      "stage": "판단",
-      "t": "2026-11-19T16:53:35.304Z",
-      "tab": 2019147897,
-      "type": "결과 공개"
-    },
-    {
-      "ahead": true,
-      "episode": 13,
-      "event": "흐리게 (스포 의심)",
-      "id": "v:v4",
-      "kind": "video",
-      "p": 64,
-      "p_used": 64,
-      "reasoned": false,
-      "stage": "행동",
-      "t": "2026-11-19T16:53:35.304Z",
-      "tab": 2019147897,
-      "threshold": 57,
-      "type": "결과 공개",
-      "watched": 2,
-      "why": "본 회차 뒤 내용"
-    },
-    {
-      "event": "단서 모음: 영상 설명",
-      "got": [
-        "description"
-      ],
-      "id": "c6",
-      "missing": [],
-      "need": [
-        "description"
-      ],
-      "stage": "관찰",
-      "t": "2026-11-19T16:53:35.706Z",
-      "tab": 2019147897
-    },
-    {
-      "before_p": 59,
-      "event": "Zoro-1이 영상 설명을 더 보고 다시 판정",
-      "event_episode": 7,
-      "id": "c6",
-      "ms": 459,
-      "p": 65,
-      "reasoned": false,
-      "stage": "판단",
-      "t": "2026-11-19T16:53:36.168Z",
-      "tab": 2019147897,
-      "type": "결과 공개",
-      "used_clues": [
-        "description"
-      ]
-    },
-    {
-      "ahead": true,
-      "episode": 7,
-      "event": "흐리게 (스포 의심)",
-      "id": "c6",
-      "kind": "comment",
-      "p": 65,
-      "p_used": 65,
-      "reasoned": false,
-      "stage": "행동",
-      "t": "2026-11-19T16:53:36.169Z",
-      "tab": 2019147897,
-      "threshold": 57,
-      "type": "결과 공개",
-      "watched": 2,
-      "why": "본 회차 뒤 내용"
+      "watched": 3,
+      "why": "이미 본 회차 내용 (확률 ×0.1)"
     },
     {
       "changed": {
         "watchedEpisode": {
-          "from": 2,
-          "to": 1
+          "from": 3,
+          "to": 2
         }
       },
       "count": 11,
       "event": "설정 바뀜 → 화면의 글 전체 다시 판정",
       "stage": "관찰",
-      "t": "2026-11-19T16:54:58.651Z",
+      "t": "2026-11-19T21:38:14.496Z",
       "tab": 2019147897
     },
     {
       "event": "지금 보는 영상 확인 → 그대로 재생",
-      "id": "cur:v2",
+      "id": "cur:v1",
       "kind": "current-video",
       "result": "지금 영상: 판단 엔진 응답 없음 → 키워드로 문제 없음",
       "stage": "판단",
-      "t": "2026-11-19T16:54:58.662Z",
+      "t": "2026-11-19T21:38:14.515Z",
       "tab": 2019147897
     },
     {
@@ -763,39 +506,39 @@
       "items": [
         {
           "exact_time": true,
-          "id": "c6",
+          "id": "c1",
           "kind": "comment",
-          "posted_at": "2025-12-23T21:45:00+09:00"
+          "posted_at": "2025-12-16T21:14:00+09:00"
         },
         {
           "exact_time": true,
-          "id": "c7",
+          "id": "c2",
           "kind": "comment",
-          "posted_at": "2025-12-23T22:01:00+09:00"
+          "posted_at": "2025-12-16T21:20:00+09:00"
         },
         {
           "exact_time": true,
-          "id": "c8",
+          "id": "c3",
           "kind": "comment",
-          "posted_at": "2025-12-23T22:15:00+09:00"
+          "posted_at": "2025-12-16T21:35:00+09:00"
         },
         {
           "exact_time": true,
-          "id": "c9",
+          "id": "c4",
           "kind": "comment",
-          "posted_at": "2025-12-23T23:05:00+09:00"
+          "posted_at": "2025-12-16T22:02:00+09:00"
         },
         {
           "exact_time": true,
-          "id": "c17",
+          "id": "c5",
           "kind": "comment",
-          "posted_at": "2025-12-23T23:20:00+09:00"
+          "posted_at": "2025-12-16T22:40:00+09:00"
         },
         {
           "exact_time": true,
-          "id": "c16",
+          "id": "c15",
           "kind": "comment",
-          "posted_at": "2026-01-16T09:05:00+09:00"
+          "posted_at": "2026-01-15T10:20:00+09:00"
         },
         {
           "exact_time": true,
@@ -830,77 +573,77 @@
       ],
       "mode": "zoro",
       "stage": "관찰",
-      "t": "2026-11-19T16:54:58.785Z",
+      "t": "2026-11-19T21:38:14.619Z",
       "tab": 2019147897,
       "videos": 5,
-      "watched": 1
+      "watched": 2
     },
     {
       "count": 11,
       "error": "TypeError: Failed to fetch",
       "event": "판단 엔진 응답 실패",
       "stage": "오류",
-      "t": "2026-11-19T16:54:58.814Z",
+      "t": "2026-11-19T21:38:14.643Z",
       "tab": 2019147897
     },
     {
       "event": "엔진 끊김 → 키워드 방식으로 대체, 5초마다 엔진 확인",
       "stage": "오류",
-      "t": "2026-11-19T16:54:58.814Z",
+      "t": "2026-11-19T21:38:14.643Z",
       "tab": 2019147897
     },
     {
       "event": "키워드 대체 → 그대로 보임",
-      "id": "c6",
+      "id": "c1",
       "keyword": null,
       "kind": "comment",
       "stage": "행동",
-      "t": "2026-11-19T16:54:58.815Z",
+      "t": "2026-11-19T21:38:14.644Z",
+      "tab": 2019147897
+    },
+    {
+      "event": "키워드 대체 → 가림",
+      "id": "c2",
+      "keyword": "최강록",
+      "kind": "comment",
+      "stage": "행동",
+      "t": "2026-11-19T21:38:14.644Z",
       "tab": 2019147897
     },
     {
       "event": "키워드 대체 → 그대로 보임",
-      "id": "c7",
+      "id": "c3",
       "keyword": null,
       "kind": "comment",
       "stage": "행동",
-      "t": "2026-11-19T16:54:58.815Z",
+      "t": "2026-11-19T21:38:14.644Z",
+      "tab": 2019147897
+    },
+    {
+      "event": "키워드 대체 → 가림",
+      "id": "c4",
+      "keyword": "우승",
+      "kind": "comment",
+      "stage": "행동",
+      "t": "2026-11-19T21:38:14.644Z",
       "tab": 2019147897
     },
     {
       "event": "키워드 대체 → 그대로 보임",
-      "id": "c8",
+      "id": "c5",
       "keyword": null,
       "kind": "comment",
       "stage": "행동",
-      "t": "2026-11-19T16:54:58.815Z",
+      "t": "2026-11-19T21:38:14.644Z",
       "tab": 2019147897
     },
     {
       "event": "키워드 대체 → 그대로 보임",
-      "id": "c9",
+      "id": "c15",
       "keyword": null,
       "kind": "comment",
       "stage": "행동",
-      "t": "2026-11-19T16:54:58.815Z",
-      "tab": 2019147897
-    },
-    {
-      "event": "키워드 대체 → 그대로 보임",
-      "id": "c17",
-      "keyword": null,
-      "kind": "comment",
-      "stage": "행동",
-      "t": "2026-11-19T16:54:58.815Z",
-      "tab": 2019147897
-    },
-    {
-      "event": "키워드 대체 → 그대로 보임",
-      "id": "c16",
-      "keyword": null,
-      "kind": "comment",
-      "stage": "행동",
-      "t": "2026-11-19T16:54:58.815Z",
+      "t": "2026-11-19T21:38:14.645Z",
       "tab": 2019147897
     },
     {
@@ -909,7 +652,7 @@
       "keyword": null,
       "kind": "video",
       "stage": "행동",
-      "t": "2026-11-19T16:54:58.815Z",
+      "t": "2026-11-19T21:38:14.645Z",
       "tab": 2019147897
     },
     {
@@ -918,7 +661,7 @@
       "keyword": null,
       "kind": "video",
       "stage": "행동",
-      "t": "2026-11-19T16:54:58.815Z",
+      "t": "2026-11-19T21:38:14.645Z",
       "tab": 2019147897
     },
     {
@@ -927,7 +670,7 @@
       "keyword": null,
       "kind": "video",
       "stage": "행동",
-      "t": "2026-11-19T16:54:58.815Z",
+      "t": "2026-11-19T21:38:14.645Z",
       "tab": 2019147897
     },
     {
@@ -936,7 +679,7 @@
       "keyword": "최강록",
       "kind": "video",
       "stage": "행동",
-      "t": "2026-11-19T16:54:58.815Z",
+      "t": "2026-11-19T21:38:14.645Z",
       "tab": 2019147897
     },
     {
@@ -945,7 +688,7 @@
       "keyword": null,
       "kind": "video",
       "stage": "행동",
-      "t": "2026-11-19T16:54:58.815Z",
+      "t": "2026-11-19T21:38:14.645Z",
       "tab": 2019147897
     },
     {
@@ -953,7 +696,7 @@
       "event": "엔진 다시 응답 → 키워드로 대신했던 글 다시 판정",
       "how": "5초 확인",
       "stage": "복구",
-      "t": "2026-11-19T16:55:24.225Z",
+      "t": "2026-11-19T21:38:50.039Z",
       "tab": 2019147897
     },
     {
@@ -963,39 +706,39 @@
       "items": [
         {
           "exact_time": true,
-          "id": "c6",
+          "id": "c1",
           "kind": "comment",
-          "posted_at": "2025-12-23T21:45:00+09:00"
+          "posted_at": "2025-12-16T21:14:00+09:00"
         },
         {
           "exact_time": true,
-          "id": "c7",
+          "id": "c2",
           "kind": "comment",
-          "posted_at": "2025-12-23T22:01:00+09:00"
+          "posted_at": "2025-12-16T21:20:00+09:00"
         },
         {
           "exact_time": true,
-          "id": "c8",
+          "id": "c3",
           "kind": "comment",
-          "posted_at": "2025-12-23T22:15:00+09:00"
+          "posted_at": "2025-12-16T21:35:00+09:00"
         },
         {
           "exact_time": true,
-          "id": "c9",
+          "id": "c4",
           "kind": "comment",
-          "posted_at": "2025-12-23T23:05:00+09:00"
+          "posted_at": "2025-12-16T22:02:00+09:00"
         },
         {
           "exact_time": true,
-          "id": "c17",
+          "id": "c5",
           "kind": "comment",
-          "posted_at": "2025-12-23T23:20:00+09:00"
+          "posted_at": "2025-12-16T22:40:00+09:00"
         },
         {
           "exact_time": true,
-          "id": "c16",
+          "id": "c15",
           "kind": "comment",
-          "posted_at": "2026-01-16T09:05:00+09:00"
+          "posted_at": "2026-01-15T10:20:00+09:00"
         },
         {
           "exact_time": true,
@@ -1030,70 +773,70 @@
       ],
       "mode": "zoro",
       "stage": "관찰",
-      "t": "2026-11-19T16:55:24.346Z",
+      "t": "2026-11-19T21:38:50.160Z",
       "tab": 2019147897,
       "videos": 5,
-      "watched": 1
+      "watched": 2
     },
     {
       "count": 11,
       "engine": "zoro-1",
       "event": "Zoro-1 판정 받음",
-      "ms": 1489,
+      "ms": 922,
       "results": [
         {
-          "event_episode": 7,
-          "event_p": 53,
-          "id": "c6",
-          "p": 60,
+          "event_episode": 3,
+          "event_p": 42,
+          "id": "c1",
+          "p": 68,
+          "type": "감상·출연자 이야기",
+          "written_after": 3
+        },
+        {
+          "event_episode": null,
+          "event_p": null,
+          "id": "c2",
+          "p": 45,
+          "type": "감상·출연자 이야기",
+          "written_after": 3
+        },
+        {
+          "event_episode": null,
+          "event_p": null,
+          "id": "c3",
+          "p": 66,
           "type": "결과 공개",
-          "written_after": 7
+          "written_after": 3
         },
         {
           "event_episode": null,
           "event_p": null,
-          "id": "c7",
-          "p": 15,
-          "type": "감상·출연자 이야기",
-          "written_after": 7
-        },
-        {
-          "event_episode": null,
-          "event_p": null,
-          "id": "c8",
-          "p": 36,
-          "type": "감상·출연자 이야기",
-          "written_after": 7
-        },
-        {
-          "event_episode": null,
-          "event_p": null,
-          "id": "c9",
-          "p": 12,
+          "id": "c4",
+          "p": 23,
           "type": "루머·추측",
-          "written_after": 7
+          "written_after": 3
         },
         {
           "event_episode": null,
           "event_p": null,
-          "id": "c17",
-          "p": 22,
-          "type": "감상·출연자 이야기",
-          "written_after": 7
+          "id": "c5",
+          "p": 46,
+          "type": "결과 공개",
+          "written_after": 3
         },
         {
           "event_episode": 13,
-          "event_p": 49,
-          "id": "c16",
-          "p": 52,
+          "event_p": 52,
+          "id": "c15",
+          "p": 57,
           "type": "감상·출연자 이야기",
           "written_after": 13
         },
         {
           "event_episode": 3,
-          "event_p": 43,
+          "event_p": 39,
           "id": "v:v1",
-          "p": 44,
+          "p": 60,
           "type": "감상·출연자 이야기",
           "written_after": 3
         },
@@ -1101,7 +844,7 @@
           "event_episode": null,
           "event_p": null,
           "id": "v:v2",
-          "p": 36,
+          "p": 39,
           "type": "감상·출연자 이야기",
           "written_after": 7
         },
@@ -1109,15 +852,15 @@
           "event_episode": null,
           "event_p": null,
           "id": "v:v3",
-          "p": 40,
+          "p": 28,
           "type": "감상·출연자 이야기",
           "written_after": 13
         },
         {
-          "event_episode": 13,
-          "event_p": 50,
+          "event_episode": null,
+          "event_p": null,
           "id": "v:v4",
-          "p": 64,
+          "p": 85,
           "type": "결과 공개",
           "written_after": 13
         },
@@ -1125,139 +868,139 @@
           "event_episode": null,
           "event_p": null,
           "id": "v:v5",
-          "p": 8,
+          "p": 3,
           "type": "감상·출연자 이야기",
           "written_after": 3
         }
       ],
       "stage": "판단",
-      "t": "2026-11-19T16:55:25.842Z",
+      "t": "2026-11-19T21:38:51.088Z",
       "tab": 2019147897
     },
     {
       "ahead": true,
-      "episode": 7,
+      "episode": 3,
       "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
-      "id": "c6",
+      "id": "c1",
       "kind": "comment",
       "need": [
         "description"
       ],
-      "p": 60,
-      "p_used": 60,
+      "p": 68,
+      "p_used": 68,
       "reasoned": false,
       "stage": "라우팅",
-      "t": "2026-11-19T16:55:25.842Z",
+      "t": "2026-11-19T21:38:51.088Z",
+      "tab": 2019147897,
+      "threshold": 57,
+      "type": "감상·출연자 이야기",
+      "watched": 2
+    },
+    {
+      "ahead": true,
+      "episode": 3,
+      "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
+      "id": "c2",
+      "kind": "comment",
+      "need": [
+        "description"
+      ],
+      "p": 45,
+      "p_used": 45,
+      "reasoned": false,
+      "stage": "라우팅",
+      "t": "2026-11-19T21:38:51.089Z",
+      "tab": 2019147897,
+      "threshold": 57,
+      "type": "감상·출연자 이야기",
+      "watched": 2
+    },
+    {
+      "ahead": true,
+      "episode": 3,
+      "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
+      "id": "c3",
+      "kind": "comment",
+      "need": [
+        "description"
+      ],
+      "p": 66,
+      "p_used": 66,
+      "reasoned": false,
+      "stage": "라우팅",
+      "t": "2026-11-19T21:38:51.089Z",
       "tab": 2019147897,
       "threshold": 57,
       "type": "결과 공개",
-      "watched": 1
-    },
-    {
-      "ahead": true,
-      "episode": 7,
-      "event": "그대로 보임",
-      "id": "c7",
-      "kind": "comment",
-      "p": 15,
-      "p_used": 15,
-      "reasoned": false,
-      "stage": "행동",
-      "t": "2026-11-19T16:55:25.842Z",
-      "tab": 2019147897,
-      "threshold": 57,
-      "type": "감상·출연자 이야기",
-      "watched": 1,
-      "why": "기준보다 낮음"
-    },
-    {
-      "ahead": true,
-      "episode": 7,
-      "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
-      "id": "c8",
-      "kind": "comment",
-      "need": [
-        "description"
-      ],
-      "p": 36,
-      "p_used": 36,
-      "reasoned": false,
-      "stage": "라우팅",
-      "t": "2026-11-19T16:55:25.842Z",
-      "tab": 2019147897,
-      "threshold": 57,
-      "type": "감상·출연자 이야기",
-      "watched": 1
-    },
-    {
-      "ahead": true,
-      "episode": 7,
-      "event": "그대로 보임",
-      "id": "c9",
-      "kind": "comment",
-      "p": 12,
-      "p_used": 12,
-      "reasoned": false,
-      "stage": "행동",
-      "t": "2026-11-19T16:55:25.842Z",
-      "tab": 2019147897,
-      "threshold": 57,
-      "type": "루머·추측",
-      "watched": 1,
-      "why": "기준보다 낮음"
-    },
-    {
-      "ahead": true,
-      "episode": 7,
-      "event": "그대로 보임",
-      "id": "c17",
-      "kind": "comment",
-      "p": 22,
-      "p_used": 22,
-      "reasoned": false,
-      "stage": "행동",
-      "t": "2026-11-19T16:55:25.843Z",
-      "tab": 2019147897,
-      "threshold": 57,
-      "type": "감상·출연자 이야기",
-      "watched": 1,
-      "why": "기준보다 낮음"
-    },
-    {
-      "ahead": true,
-      "episode": 13,
-      "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
-      "id": "c16",
-      "kind": "comment",
-      "need": [
-        "description"
-      ],
-      "p": 52,
-      "p_used": 52,
-      "reasoned": false,
-      "stage": "라우팅",
-      "t": "2026-11-19T16:55:25.843Z",
-      "tab": 2019147897,
-      "threshold": 57,
-      "type": "감상·출연자 이야기",
-      "watched": 1
+      "watched": 2
     },
     {
       "ahead": true,
       "episode": 3,
       "event": "그대로 보임",
-      "id": "v:v1",
-      "kind": "video",
-      "p": 44,
-      "p_used": 44,
+      "id": "c4",
+      "kind": "comment",
+      "p": 23,
+      "p_used": 23,
       "reasoned": false,
       "stage": "행동",
-      "t": "2026-11-19T16:55:25.843Z",
+      "t": "2026-11-19T21:38:51.089Z",
+      "tab": 2019147897,
+      "threshold": 57,
+      "type": "루머·추측",
+      "watched": 2,
+      "why": "기준보다 낮음"
+    },
+    {
+      "ahead": true,
+      "episode": 3,
+      "event": "Zoro가 단서 요청: 영상 설명 → 일단 흐리고 모아서 다시 묻기",
+      "id": "c5",
+      "kind": "comment",
+      "need": [
+        "description"
+      ],
+      "p": 46,
+      "p_used": 46,
+      "reasoned": false,
+      "stage": "라우팅",
+      "t": "2026-11-19T21:38:51.089Z",
+      "tab": 2019147897,
+      "threshold": 57,
+      "type": "결과 공개",
+      "watched": 2
+    },
+    {
+      "ahead": true,
+      "episode": 13,
+      "event": "기준과 10%p 안쪽이라 애매함 → 일단 흐리고 다시 묻기",
+      "id": "c15",
+      "kind": "comment",
+      "p": 57,
+      "p_used": 57,
+      "reasoned": false,
+      "stage": "라우팅",
+      "t": "2026-11-19T21:38:51.090Z",
       "tab": 2019147897,
       "threshold": 57,
       "type": "감상·출연자 이야기",
-      "watched": 1,
-      "why": "기준보다 낮음"
+      "watched": 2
+    },
+    {
+      "ahead": true,
+      "episode": 3,
+      "event": "기준과 10%p 안쪽이라 애매함 → 일단 흐리고 다시 묻기",
+      "id": "v:v1",
+      "kind": "video",
+      "p": 60,
+      "p_used": 60,
+      "reasoned": false,
+      "stage": "라우팅",
+      "t": "2026-11-19T21:38:51.090Z",
+      "tab": 2019147897,
+      "threshold": 57,
+      "type": "감상·출연자 이야기",
+      "watched": 2
     },
     {
       "ahead": true,
@@ -1265,15 +1008,15 @@
       "event": "그대로 보임",
       "id": "v:v2",
       "kind": "video",
-      "p": 36,
-      "p_used": 36,
+      "p": 39,
+      "p_used": 39,
       "reasoned": false,
       "stage": "행동",
-      "t": "2026-11-19T16:55:25.843Z",
+      "t": "2026-11-19T21:38:51.090Z",
       "tab": 2019147897,
       "threshold": 57,
       "type": "감상·출연자 이야기",
-      "watched": 1,
+      "watched": 2,
       "why": "기준보다 낮음"
     },
     {
@@ -1282,32 +1025,33 @@
       "event": "그대로 보임",
       "id": "v:v3",
       "kind": "video",
-      "p": 40,
-      "p_used": 40,
+      "p": 28,
+      "p_used": 28,
       "reasoned": false,
       "stage": "행동",
-      "t": "2026-11-19T16:55:25.843Z",
+      "t": "2026-11-19T21:38:51.090Z",
       "tab": 2019147897,
       "threshold": 57,
       "type": "감상·출연자 이야기",
-      "watched": 1,
+      "watched": 2,
       "why": "기준보다 낮음"
     },
     {
       "ahead": true,
       "episode": 13,
-      "event": "기준과 10%p 안쪽이라 애매함 → 일단 흐리고 추론 모드로 다시 묻기",
+      "event": "가림",
       "id": "v:v4",
       "kind": "video",
-      "p": 64,
-      "p_used": 64,
+      "p": 85,
+      "p_used": 85,
       "reasoned": false,
-      "stage": "라우팅",
-      "t": "2026-11-19T16:55:25.843Z",
+      "stage": "행동",
+      "t": "2026-11-19T21:38:51.090Z",
       "tab": 2019147897,
       "threshold": 57,
       "type": "결과 공개",
-      "watched": 1
+      "watched": 2,
+      "why": "본 회차 뒤 내용"
     },
     {
       "ahead": true,
@@ -1315,15 +1059,15 @@
       "event": "그대로 보임",
       "id": "v:v5",
       "kind": "video",
-      "p": 8,
-      "p_used": 8,
+      "p": 3,
+      "p_used": 3,
       "reasoned": false,
       "stage": "행동",
-      "t": "2026-11-19T16:55:25.843Z",
+      "t": "2026-11-19T21:38:51.090Z",
       "tab": 2019147897,
       "threshold": 57,
       "type": "감상·출연자 이야기",
-      "watched": 1,
+      "watched": 2,
       "why": "기준보다 낮음"
     },
     {
@@ -1331,46 +1075,46 @@
       "got": [
         "description"
       ],
-      "id": "c6",
+      "id": "c1",
       "missing": [],
       "need": [
         "description"
       ],
       "stage": "관찰",
-      "t": "2026-11-19T16:55:26.244Z",
+      "t": "2026-11-19T21:38:51.491Z",
       "tab": 2019147897
     },
     {
-      "before_p": 60,
+      "before_p": 68,
       "event": "Zoro-1이 영상 설명을 더 보고 다시 판정",
-      "event_episode": 7,
-      "id": "c6",
-      "ms": 467,
-      "p": 66,
+      "event_episode": 3,
+      "id": "c1",
+      "ms": 530,
+      "p": 63,
       "reasoned": false,
       "stage": "판단",
-      "t": "2026-11-19T16:55:26.729Z",
+      "t": "2026-11-19T21:38:52.024Z",
       "tab": 2019147897,
-      "type": "결과 공개",
+      "type": "감상·출연자 이야기",
       "used_clues": [
         "description"
       ]
     },
     {
       "ahead": true,
-      "episode": 7,
+      "episode": 3,
       "event": "흐리게 (스포 의심)",
-      "id": "c6",
+      "id": "c1",
       "kind": "comment",
-      "p": 66,
-      "p_used": 66,
+      "p": 63,
+      "p_used": 63,
       "reasoned": false,
       "stage": "행동",
-      "t": "2026-11-19T16:55:26.729Z",
+      "t": "2026-11-19T21:38:52.025Z",
       "tab": 2019147897,
       "threshold": 57,
-      "type": "결과 공개",
-      "watched": 1,
+      "type": "감상·출연자 이야기",
+      "watched": 2,
       "why": "본 회차 뒤 내용"
     },
     {
@@ -1378,46 +1122,46 @@
       "got": [
         "description"
       ],
-      "id": "c8",
+      "id": "c2",
       "missing": [],
       "need": [
         "description"
       ],
       "stage": "관찰",
-      "t": "2026-11-19T16:55:27.131Z",
+      "t": "2026-11-19T21:38:52.425Z",
       "tab": 2019147897
     },
     {
-      "before_p": 36,
+      "before_p": 45,
       "event": "Zoro-1이 영상 설명을 더 보고 다시 판정",
       "event_episode": null,
-      "id": "c8",
-      "ms": 484,
-      "p": 30,
+      "id": "c2",
+      "ms": 433,
+      "p": 51,
       "reasoned": false,
       "stage": "판단",
-      "t": "2026-11-19T16:55:27.620Z",
+      "t": "2026-11-19T21:38:52.863Z",
       "tab": 2019147897,
-      "type": "루머·추측",
+      "type": "감상·출연자 이야기",
       "used_clues": [
         "description"
       ]
     },
     {
       "ahead": true,
-      "episode": 7,
+      "episode": 3,
       "event": "그대로 보임",
-      "id": "c8",
+      "id": "c2",
       "kind": "comment",
-      "p": 30,
-      "p_used": 30,
+      "p": 51,
+      "p_used": 51,
       "reasoned": false,
       "stage": "행동",
-      "t": "2026-11-19T16:55:27.620Z",
+      "t": "2026-11-19T21:38:52.863Z",
       "tab": 2019147897,
       "threshold": 57,
-      "type": "루머·추측",
-      "watched": 1,
+      "type": "감상·출연자 이야기",
+      "watched": 2,
       "why": "기준보다 낮음"
     },
     {
@@ -1425,76 +1169,153 @@
       "got": [
         "description"
       ],
-      "id": "c16",
+      "id": "c3",
       "missing": [],
       "need": [
         "description"
       ],
       "stage": "관찰",
-      "t": "2026-11-19T16:55:28.023Z",
+      "t": "2026-11-19T21:38:53.269Z",
       "tab": 2019147897
     },
     {
-      "before_p": 52,
+      "before_p": 66,
       "event": "Zoro-1이 영상 설명을 더 보고 다시 판정",
-      "event_episode": 13,
-      "id": "c16",
-      "ms": 509,
-      "p": 56,
+      "event_episode": null,
+      "id": "c3",
+      "ms": 425,
+      "p": 72,
       "reasoned": false,
       "stage": "판단",
-      "t": "2026-11-19T16:55:28.536Z",
+      "t": "2026-11-19T21:38:53.698Z",
       "tab": 2019147897,
-      "type": "감상·출연자 이야기",
+      "type": "결과 공개",
       "used_clues": [
         "description"
       ]
     },
     {
       "ahead": true,
+      "episode": 3,
+      "event": "흐리게 (스포 의심)",
+      "id": "c3",
+      "kind": "comment",
+      "p": 72,
+      "p_used": 72,
+      "reasoned": false,
+      "stage": "행동",
+      "t": "2026-11-19T21:38:53.698Z",
+      "tab": 2019147897,
+      "threshold": 57,
+      "type": "결과 공개",
+      "watched": 2,
+      "why": "본 회차 뒤 내용"
+    },
+    {
+      "event": "단서 모음: 영상 설명",
+      "got": [
+        "description"
+      ],
+      "id": "c5",
+      "missing": [],
+      "need": [
+        "description"
+      ],
+      "stage": "관찰",
+      "t": "2026-11-19T21:38:54.102Z",
+      "tab": 2019147897
+    },
+    {
+      "before_p": 46,
+      "event": "Zoro-1이 영상 설명을 더 보고 다시 판정",
+      "event_episode": null,
+      "id": "c5",
+      "ms": 446,
+      "p": 43,
+      "reasoned": false,
+      "stage": "판단",
+      "t": "2026-11-19T21:38:54.554Z",
+      "tab": 2019147897,
+      "type": "결과 공개",
+      "used_clues": [
+        "description"
+      ]
+    },
+    {
+      "ahead": true,
+      "episode": 3,
+      "event": "그대로 보임",
+      "id": "c5",
+      "kind": "comment",
+      "p": 43,
+      "p_used": 43,
+      "reasoned": false,
+      "stage": "행동",
+      "t": "2026-11-19T21:38:54.554Z",
+      "tab": 2019147897,
+      "threshold": 57,
+      "type": "결과 공개",
+      "watched": 2,
+      "why": "기준보다 낮음"
+    },
+    {
+      "before_p": 57,
+      "event": "Zoro-1 다시 판정 받음",
+      "event_episode": 13,
+      "id": "c15",
+      "ms": 496,
+      "p": 56,
+      "reasoned": false,
+      "stage": "판단",
+      "t": "2026-11-19T21:38:55.055Z",
+      "tab": 2019147897,
+      "type": "감상·출연자 이야기"
+    },
+    {
+      "ahead": true,
       "episode": 13,
       "event": "그대로 보임",
-      "id": "c16",
+      "id": "c15",
       "kind": "comment",
       "p": 56,
       "p_used": 56,
       "reasoned": false,
       "stage": "행동",
-      "t": "2026-11-19T16:55:28.536Z",
+      "t": "2026-11-19T21:38:55.055Z",
       "tab": 2019147897,
       "threshold": 57,
       "type": "감상·출연자 이야기",
-      "watched": 1,
+      "watched": 2,
       "why": "기준보다 낮음"
     },
     {
-      "before_p": 64,
-      "event": "Zoro-1 다시 판정 받음 (Zoro가 확신해서 추론 건너뜀)",
-      "event_episode": 13,
-      "id": "v:v4",
-      "ms": 474,
-      "p": 65,
+      "before_p": 60,
+      "event": "Zoro-1 다시 판정 받음",
+      "event_episode": 3,
+      "id": "v:v1",
+      "ms": 514,
+      "p": 59,
       "reasoned": false,
       "stage": "판단",
-      "t": "2026-11-19T16:55:29.015Z",
+      "t": "2026-11-19T21:38:55.578Z",
       "tab": 2019147897,
-      "type": "결과 공개"
+      "type": "감상·출연자 이야기"
     },
     {
       "ahead": true,
-      "episode": 13,
+      "episode": 3,
       "event": "흐리게 (스포 의심)",
-      "id": "v:v4",
+      "id": "v:v1",
       "kind": "video",
-      "p": 65,
-      "p_used": 65,
+      "p": 59,
+      "p_used": 59,
       "reasoned": false,
       "stage": "행동",
-      "t": "2026-11-19T16:55:29.015Z",
+      "t": "2026-11-19T21:38:55.578Z",
       "tab": 2019147897,
       "threshold": 57,
-      "type": "결과 공개",
-      "watched": 1,
+      "type": "감상·출연자 이야기",
+      "watched": 2,
       "why": "본 회차 뒤 내용"
     }
   ]

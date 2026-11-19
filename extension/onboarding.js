@@ -55,7 +55,7 @@ $("back").addEventListener("click", () => go(at - 1));
 $("next").addEventListener("click", () => {
   if (at === steps.length - 2) {
     chrome.storage.local.set({ show: pick.show, watchedEpisode: pick.ep, sensitivity: pick.sensitivity, enabled: true, onboarded: true });
-    const level = { 0.2: "확실한 것만", 0.5: "보통", 0.8: "꼼꼼히" }[pick.sensitivity] || "보통";
+    const level = { 0.4: "확실한 것만", 0.5: "보통", 0.7: "꼼꼼히" }[pick.sensitivity] || "보통";
     $("summary").textContent = `${pick.show} · ${pick.ep}화까지 봄 · ${level}`;
     $("goYoutube").href = `https://www.youtube.com/results?search_query=${encodeURIComponent(pick.show)}`;
   }

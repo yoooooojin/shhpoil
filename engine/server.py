@@ -56,6 +56,9 @@ JUDGE_PARALLEL = int(os.environ.get("JUDGE_PARALLEL", "20"))
 # 1: 이름이 나온 사건만 / 0: 기억장 전체 / fallback: 이름이 나오면 그 사건만, 아무도 안 나오면 전체
 PREFILTER = os.environ.get("PREFILTER", "1")
 P_SHIFT = float(os.environ.get("P_SHIFT", "0"))  # PREFILTER_TITLE=1이면 0.155 (dev2에서 같은 잘못 가림 기준 0.73 - 0.575)
+TYPE_ENSEMBLE = [v for v in os.environ.get("TYPE_ENSEMBLE", "").split(",") if v]  # 예: A,B,C,D
+TYPE_CAL = os.environ.get("TYPE_CAL", "0") == "1"
+_ens_pool = ThreadPoolExecutor(max_workers=60)
 PREFILTER_TITLE = os.environ.get("PREFILTER_TITLE", "0")  # 0 | fallback | 1
 MAX_CANDIDATES = int(os.environ.get("MAX_CANDIDATES", "6"))
 # 단서 더 모으기: 애매한 글(확률이 이 범위)이면 에이전트가 어떤 단서를 더 볼지 골라 need_context로 요청
@@ -107,6 +110,34 @@ def _need_context(c, p, ans):
     return ranked[:2] or None
 
 
+def _type_question(v):
+    return {"type": {"type": "choice", "instructions": Q.TYPE_INSTRUCTIONS[v], "criteria": Q.TYPE_CRITERIA[v]}}
+
+
+def _type_ensemble(state, main_probs):
+    """기본 문구 결과 + 다른 문구 버전들 결과를 평균 (Zoro는 프리필 한 번이라 버전이 늘어도 빠름)"""
+    others = [v for v in TYPE_ENSEMBLE if v != Q.variant()]
+    outs = list(_ens_pool.map(lambda v: zoro_client.decide(state, _type_question(v), False), others))
+    allp = [main_probs] + [{n: float((o["answers"]["type"].get("probabilities") or {}).get(n, 0.0)) for n in Q.TYPES} for o in outs]
+    return {n: sum(p_[n] for p_ in allp) / len(allp) for n in Q.TYPES}
+
+
+_prior_cache = {}
+
+
+def _type_prior(show):
+    """내용 없는 댓글("N/A")에서 글 종류 확률 = 모델이 원래 쏠리는 정도. 작품마다 한 번만 계산"""
+    if show not in _prior_cache:
+        st = Q.build_state(show, {"text": "N/A"})
+        out = zoro_client.decide(st, _type_question(Q.variant()), False)
+        p0 = {n: float((out["answers"]["type"].get("probabilities") or {}).get(n, 0.0)) for n in Q.TYPES}
+        if TYPE_ENSEMBLE:
+            p0 = _type_ensemble(st, p0)
+        _prior_cache[show] = p0
+        print(f"[보정] {show} 빈 댓글 쏠림: " + ", ".join(f"{k}={v:.2f}" for k, v in p0.items()), flush=True)
+    return _prior_cache[show]
+
+
 def judge_one(show, w, c, reason, sync_memory):
     t0 = time.time()
     k = schedule.episode_after(show, c.get("posted_at"))
@@ -144,6 +175,13 @@ def judge_one(show, w, c, reason, sync_memory):
     t = ans["type"]
     probs = t.get("probabilities") or {t["choice"]: 1.0}
     ptype = {name: float(probs.get(name, 0.0)) for name in Q.TYPES}
+    if TYPE_ENSEMBLE:  # 글 종류 질문을 문구 여러 버전으로 물어 평균 (프롬프트 앙상블)
+        ptype = _type_ensemble(Q.build_state(show, c), ptype)
+    if TYPE_CAL:  # 맥락 보정 (Zhao et al. 2021): 빈 댓글에서의 쏠림으로 나눠 다시 정규화
+        cf = _type_prior(show)
+        ptype = {k_: v / max(cf.get(k_, 1e-3), 1e-3) for k_, v in ptype.items()}
+        z = sum(ptype.values()) or 1.0
+        ptype = {k_: v / z for k_, v in ptype.items()}
 
     later, later_max, none_p, matched = 0.0, 0.0, 1.0, None
     if events and "event" in ans:

@@ -7,6 +7,6 @@ data/labeled/
 *.safetensors
 *.bin
 
-data/*.csv
+data/
 engine/memory_store/
 eval/out/

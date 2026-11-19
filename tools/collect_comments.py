@@ -15,7 +15,7 @@
   일정도 모를 때: --auto-schedule 을 붙이면 "N화" 리뷰 영상이 처음 올라온 시각으로 공개 일정을 추정함
     python tools/collect_comments.py --show 새작품 --auto-schedule --search "새작품 리뷰" --order time
     → 추정 일정은 data/shows_새작품.json 에 저장 (근거 영상 포함). --write-shows 를 붙이면 엔진 shows.json에 바로 추가
-    → 회차마다 검색 1번(할당량 100)이라 13화짜리면 약 1,500 사용
+    → 회차마다 검색 2~5번(1번에 할당량 100)이라 13화짜리면 약 3,000~5,000 사용
     → --save-as 흑백요리사2_자동 : 검색은 --show 이름으로, 저장은 다른 이름으로 (손으로 만든 일정·기억장과 안 섞이게 비교 시험)
   shows.json 모양: {"흑백요리사2": {"drops": [["2025-12-16T17:00:00+09:00", 3], ...]}}  (공개 시각, 그때까지 공개된 마지막 회차)
 
@@ -102,7 +102,8 @@ def search_windows(query, key, per_window):
 
 # ---------------------------------------------------------------- 공개 일정 추정
 # 새 회차가 공개되면 몇 시간 안에 "OO 7화 리뷰" 영상이 올라옴 → 7화가 제목에 든 영상 중 가장 이른 업로드 = 7화 공개 시각(조금 늦은 값)
-NOT_REVIEW = re.compile(r"예고|티저|선공개|teaser|trailer|preview", re.I)
+NOT_REVIEW = re.compile(r"예고|티저|선공개|예상|미리보기|teaser|trailer|preview", re.I)
+ISO = "%Y-%m-%dT%H:%M:%SZ"
 
 
 def episodes_in(title):
@@ -120,19 +121,23 @@ def episodes_in(title):
 def guess_schedule(show, key, max_ep=40):
     """작품 이름만으로 공개 일정 추정 → (DROPS, 근거)"""
     base = re.sub(r"\s+", "", re.sub(r"\s*(시즌|season)?\s*\d+\s*$", "", show, flags=re.I)).lower()
-    cand, misses = {}, 0
-    for n in range(1, max_ep + 1):
-        data = get("search", part="snippet", type="video", q=f"{show} {n}화", order="relevance",
-                   maxResults=25, regionCode="KR", relevanceLanguage="ko", key=key)
+    def matching(items, n):
         hits = []
-        for it in data.get("items", []):
+        for it in items:
             sn = it.get("snippet", {})
             title = sn.get("title", "")
             if NOT_REVIEW.search(title) or base not in re.sub(r"\s+", "", title).lower():
                 continue
             if n in episodes_in(title):
                 hits.append((datetime.fromisoformat(sn["publishedAt"].replace("Z", "+00:00")), it["id"].get("videoId"), title))
-        print(f"  {n}화: 근거 영상 {len(hits)}개")
+        return hits
+
+    cand, misses = {}, 0
+    for n in range(1, max_ep + 1):
+        data = get("search", part="snippet", type="video", q=f"{show} {n}화", order="relevance",
+                   maxResults=25, regionCode="KR", relevanceLanguage="ko", key=key)
+        hits = matching(data.get("items", []), n)
+        print(f"  {n}화: 인기 영상 중 근거 {len(hits)}개")
         if hits:
             cand[n], misses = hits, 0
         else:
@@ -150,17 +155,40 @@ def guess_schedule(show, key, max_ep=40):
         ok = sorted(h for h in hs if abs((h[0] - mid).days) <= 120)
         if ok:
             first[n] = ok[0]
+
+    # 인기순은 조회수 높은(= 늦게 올라온) 영상 위주라 공개 시각이 며칠 늦게 잡힘
+    # → 대략 시점 앞 3주를 최신순으로 훑어 가장 이른 리뷰를 찾음. 결과가 꽉 차면(50개) 구간 끝을 앞으로 당겨 다시
+    print("  가장 이른 리뷰 찾는 중 (최신순으로 앞 구간 훑기)")
+    for n in sorted(first):
+        best = first[n]
+        before = best[0] + timedelta(minutes=1)
+        after = best[0] - timedelta(days=21)
+        for _ in range(4):
+            data = get("search", part="snippet", type="video", q=f"{show} {n}화", order="date", maxResults=50,
+                       regionCode="KR", relevanceLanguage="ko", key=key,
+                       publishedAfter=after.strftime(ISO), publishedBefore=before.astimezone(timezone.utc).strftime(ISO))
+            items = data.get("items", [])
+            hits = sorted(matching(items, n))
+            if hits and hits[0][0] < best[0]:
+                best = hits[0]
+            if len(items) < 50 or not items:
+                break
+            # 꽉 찼으면 더 이른 영상이 잘렸을 수 있음 → 이번 결과의 가장 이른 시각 앞으로 다시
+            oldest = min(datetime.fromisoformat(it["snippet"]["publishedAt"].replace("Z", "+00:00")) for it in items)
+            before = oldest
+        if best[0] < first[n][0]:
+            print(f"    {n}화: {first[n][0].astimezone(KST):%m/%d %H시} → {best[0].astimezone(KST):%m/%d %H시}")
+        first[n] = best
     last_ep = max(first)
     # 근거 없는 회차는 다음 회차와 같이 공개된 걸로, 앞 회차보다 이르면 앞 회차에 맞춤
     est, nxt = {}, None
     for n in range(last_ep, 0, -1):
         nxt = first.get(n, nxt)
         est[n] = nxt
-    prev = None
-    for n in range(1, last_ep + 1):
-        if prev and est[n][0] < prev[0]:
-            est[n] = prev
-        prev = est[n]
+    # 회차는 순서대로 공개됨 → 뒤 회차 리뷰가 먼저 있으면 앞 회차도 그때는 공개돼 있었음 (이른 쪽으로 맞춤 = 안전한 쪽)
+    for n in range(last_ep - 1, 0, -1):
+        if est[n + 1][0] < est[n][0]:
+            est[n] = est[n + 1]
     # 20시간 안에 몰린 회차는 한 번에 공개된 걸로 묶음. 공개 시각은 정시로 내림
     drops = []
     for n in range(1, last_ep + 1):

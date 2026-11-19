@@ -307,6 +307,8 @@ function toMarkdown(log) {
     if (e.count != null) bits.push(`${e.count}개`);
     if (e.comments != null) bits.push(`댓글 ${e.comments} · 영상 ${e.videos}`);
     if (e.ms != null) bits.push(`${e.ms}ms`);
+    if (e.reasoned === true) bits.push(`Zoro 추론함${e.reasoning_ms != null ? ` (${e.reasoning_ms}ms)` : ""}`);
+    else if (e.reasoned === false) bits.push("Zoro 확신 → 추론 건너뜀");
     if (e.offset_before != null) bits.push(`보정 ${e.offset_before}%p → ${e.offset_after}%p`);
     if (e.fixed) bits.push(`${e.fixed.ep}화 기준으로 "${e.fixed.decision === "show" ? "보임" : "가림"}" 고정`);
     if (e.event_episode != null && e.stage === "학습") bits.push(`${e.event_episode}화 사건${e.event_text ? ` "${e.event_text}"` : ""}`);

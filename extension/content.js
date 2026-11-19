@@ -299,8 +299,8 @@
   let clueBusy = 0;
   const clueWait = [];
   async function withClueSlot(fn) {
-    // 추론 모드는 글 하나에 10~15초라 동시에 2개까지만
-    if (clueBusy >= 2) await new Promise((r) => clueWait.push(r));
+    // 다시 묻기(추론 모드)는 한 줄로 세워 하나씩: 동시에 보내면 서버에서 서로 기다리느라 응답 한도(기본 20초)를 넘김
+    if (clueBusy >= 1) await new Promise((r) => clueWait.push(r));
     clueBusy++;
     try {
       return await fn();
@@ -338,7 +338,7 @@
       // reasoned는 엔진이 준 값 그대로 (auto 모드에서 Zoro가 확신해서 생각을 건너뛰면 false). 다시 묻기 반복은 s.reasked로 막음
       s.usedClues = r.used_clues?.length ? r.used_clues : got;
       trace("판단", `Zoro-1이 ${clueLabel(s.usedClues) || "단서"}${eulReul(clueLabel(s.usedClues) || "단서")} 더 보고 다시 판정`, {
-        id, ms: res.ms, used_clues: s.usedClues, reasoned: !!r.reasoned, type: r.type, p: pct(r.p_spoiler), before_p: pct(s.result?.p_spoiler),
+        id, ms: res.ms, used_clues: s.usedClues, reasoned: !!r.reasoned, reasoning_ms: r.reasoning_ms, type: r.type, p: pct(r.p_spoiler), before_p: pct(s.result?.p_spoiler),
         event_episode: r.matched_event?.episode ?? null, event_text: raw(r.matched_event?.text),
       });
       stats.reasoned++;
@@ -455,14 +455,14 @@
     const s = state.get(id);
     s.reasked = true;
     const round = s.round; // 기다리는 동안 설정이 바뀌어 다시 판단이 시작됐으면 이 응답은 버림
-    const res = await judge([id], true);
-    if (s.round !== round) return;
+    const res = await withClueSlot(() => (s.round === round ? judge([id], true) : null));
+    if (s.round !== round || !res) return;
     const r = res?.ok && res.data.results.find((x) => x.id === id);
     if (!r) {
       trace("오류", "추론 모드 응답 실패 → 첫 판정으로 결정", { id });
       return decide(id); // 실패하면 첫 판단 결과로 결정 (흐린 채로 멈추지 않게)
     }
-    trace("판단", `Zoro-1 다시 판정 받음 (${r.reasoned ? "Zoro가 추론함" : "Zoro가 확신해서 추론 건너뜀"})`, { id, ms: res.ms, reasoned: !!r.reasoned, type: r.type, p: pct(r.p_spoiler), before_p: pct(s.result?.p_spoiler), event_episode: r.matched_event?.episode ?? null, event_text: raw(r.matched_event?.text) });
+    trace("판단", `Zoro-1 다시 판정 받음 (${r.reasoned ? "Zoro가 추론함" : "Zoro가 확신해서 추론 건너뜀"})`, { id, ms: res.ms, reasoned: !!r.reasoned, reasoning_ms: r.reasoning_ms, type: r.type, p: pct(r.p_spoiler), before_p: pct(s.result?.p_spoiler), event_episode: r.matched_event?.episode ?? null, event_text: raw(r.matched_event?.text) });
     stats.reasoned++;
     s.result = r;
     remember(id, r);

@@ -270,7 +270,7 @@ def build_from_comments(show, path, until=None, min_hits=2, review_out=None, fre
 def article_episode(show, a):
     if a.get("episode") is not None:
         return int(a["episode"])
-    return schedule.episode_after(show, a.get("published"))
+    return schedule.episode_after(pname(show), a.get("published"))  # '흑백요리사2_자동'도 흑백요리사2 일정으로
 
 
 def main():
@@ -334,8 +334,14 @@ def main():
             try:
                 text = fetch_text(a, pname(show))
             except Exception as e:  # noqa: BLE001
-                print(f"! 기사를 못 읽음 ({e}): {name}\n  → 본문을 .txt로 저장해서 \"file\"로 넣어 주세요")
-                continue
+                if a.get("fallback_text"):  # 사이트가 막으면 검색 결과의 제목+요약으로
+                    text = a["fallback_text"]
+                    print(f"! 본문을 못 읽어 제목·요약으로 ({e}): {name}")
+                else:
+                    print(f"! 기사를 못 읽음 ({e}): {name}\n  → 본문을 .txt로 저장해서 \"file\"로 넣어 주세요")
+                    continue
+            if len(text) < 200 and a.get("fallback_text") and a["fallback_text"] not in text:
+                text = a["fallback_text"] + "\n" + text
             found = extract(show, text)
             print(f"[{ep}화까지 공개 후] {name}  → 사건 {len(found)}개")
             for t in found:

@@ -81,6 +81,31 @@ def event_desc(e, show=""):
     return desc
 
 
+def _name_keys(name, aliases):
+    """사람 하나를 찾을 때 쓸 글자들: 이름, 별명, 세 글자 이름이면 이름만(강록)."""
+    keys = {name, *aliases}
+    if len(name) == 3 and all("가" <= ch <= "힣" for ch in name):
+        keys.add(name[1:])
+    return {k for k in keys if len(k) >= 2}
+
+
+def candidate_events(events, show, text, limit=6):
+    """댓글에 나온 출연자 이름·별명으로 사건 후보를 먼저 추린다.
+
+    선택지가 적을수록 Zoro가 빠르고 덜 헷갈린다. 아무도 안 나오면 [] (사건 질문 생략).
+    """
+    table = people_aliases(show) if show else {}
+    scored = []
+    for e in events:
+        people = e.get("people") or []
+        hit = sum(1 for p in people if any(k in text for k in _name_keys(p, table.get(p) or [])))
+        hit += sum(1 for a in e.get("aliases") or [] if a and a in text)
+        if hit:
+            scored.append((hit, e.get("hits", 1), e))
+    scored.sort(key=lambda x: (-x[0], -x[1], -x[2]["episode"]))
+    return [e for _, _, e in scored[:limit]]
+
+
 def build_questions(events, show=""):
     v = variant()
     qs = {

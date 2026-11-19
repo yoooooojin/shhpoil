@@ -58,6 +58,7 @@ PREFILTER = os.environ.get("PREFILTER", "1")
 MAX_CANDIDATES = int(os.environ.get("MAX_CANDIDATES", "6"))
 # 단서 더 모으기: 애매한 글(확률이 이 범위)이면 에이전트가 어떤 단서를 더 볼지 골라 need_context로 요청
 CLUE_ASK = os.environ.get("CLUE_ASK", "1") == "1"
+REASON_MODE = os.environ.get("REASON_MODE", "auto")  # auto: Zoro가 확신 낮을 때만 추론 / on: 재판정 때 늘 추론
 CLUE_LOW = float(os.environ.get("CLUE_LOW", "0.3"))
 CLUE_HIGH = float(os.environ.get("CLUE_HIGH", "0.75"))
 CLUE_MIN_P = float(os.environ.get("CLUE_MIN_P", "0.15"))
@@ -106,7 +107,9 @@ def judge_one(show, w, c, reason, sync_memory):
     tz = time.time()
     has_clues = bool(c.get("clues"))
     ask_clue = CLUE_ASK and not has_clues
-    out = zoro_client.decide(Q.build_state(show, c), Q.build_questions(events, show, ask_clue), reasoning=reason)
+    # 재판정(reason=true)일 때만 추론: 기본은 Zoro의 auto 모드 (확신이 낮을 때만 스스로 추론)
+    mode = (REASON_MODE if REASON_MODE != "on" else True) if reason else False
+    out = zoro_client.decide(Q.build_state(show, c), Q.build_questions(events, show, ask_clue), reasoning=mode)
     zoro_ms = (time.time() - tz) * 1000
     ans = out["answers"]
     t = ans["type"]
@@ -162,7 +165,7 @@ def judge_one(show, w, c, reason, sync_memory):
         "memory_update": memory_update,
         "latency_ms": round((time.time() - t0) * 1000, 1),
         "timing": {"zoro_calls": 1, "zoro_ms": round(zoro_ms, 1), "n_event_options": len(events),
-                   "reasoning": bool(reason)},
+                   "reasoning": bool(reason), "reason_mode": mode if reason else None},
     }
 
 
@@ -232,7 +235,9 @@ def judge(body, reason=False, sync_memory=False):
     opts = [r.get("timing", {}).get("n_event_options", 0) for r in results if r]
     print(f"[judge] {len(comments)}개 {wall:.0f}ms (reason={reason}) | Zoro 호출 {len(zs)}번, "
           f"평균 {statistics.mean(zs) if zs else 0:.0f}ms, 최대 {max(zs) if zs else 0:.0f}ms | "
-          f"사건 선택지 평균 {statistics.mean(opts) if opts else 0:.1f}개", file=sys.stderr, flush=True)
+          f"사건 선택지 평균 {statistics.mean(opts) if opts else 0:.1f}개"
+          + (f" | 실제 추론 {sum(1 for r in results if r and r.get('reasoned'))}/{len(results)}" if reason else ""),
+          file=sys.stderr, flush=True)
     return {"results": results, "engine": engine_name(),
             "memory": {"size": len(memory.load(show)), "added": memory.drain_recent(show),
                        "pending": memory.pending()}}

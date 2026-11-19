@@ -43,7 +43,10 @@ def _normalize(raw):
     if answers is None:  # 질문 ID가 최상위에 바로 있는 경우
         answers = {k: v for k, v in raw.items() if isinstance(v, dict)}
     return {"answers": answers,
-            "reasoned": bool(raw.get("reasoned") or raw.get("reasoning")),
+            # 실제로 추론했을 때만 true: auto 모드는 확신이 높으면 추론을 건너뛴다
+            "reasoned": bool(raw.get("reasoned")
+                             or (isinstance(raw.get("reasoning"), str) and raw["reasoning"].strip())
+                             or (raw.get("usage") or {}).get("output_tokens", 0) > 0),
             "reasoning": raw.get("reasoning") if isinstance(raw.get("reasoning"), str) else None}
 
 

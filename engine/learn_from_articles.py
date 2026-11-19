@@ -101,7 +101,8 @@ def load_events_csv(path):
 
 # ---------- 댓글로 기억장 자동 만들기 ----------
 RESULT_P = float(os.environ.get("AUTO_RESULT_P", "0.5"))     # '실제 결과가 담겨 있나' 예 확률이 이 이상인 글만
-SAME_CANDS = int(os.environ.get("AUTO_SAME_CANDS", "25"))     # 같은 사건인지 물을 때 보여 줄 기존 사건 수
+SAME_CANDS = int(os.environ.get("AUTO_SAME_CANDS", "25"))
+EP_SHARE = float(os.environ.get("AUTO_EP_SHARE", "0.25"))      # 회차를 정할 때 이 비율 이상 언급이 모인 구간     # 같은 사건인지 물을 때 보여 줄 기존 사건 수
 LABELED_VIDEOS = {"58uo5T2BU8A", "0yD2KLHXuNs", "duKTefAbPpY", "7h2XvmRcNwM", "zwHzfr8IXPs",
                   "XT5mP8x72_U", "T-XNapr7z6Q", "m3Cj0MvS7fc", "ggvso2ilq_s", "hzN0SPCDIAs"}
 
@@ -224,8 +225,22 @@ def build_from_comments(show, path, until=None, min_hits=2, review_out=None, fre
         support.setdefault(ev, []).append(r)
         print(f"  {mark} {ep:>2}화  {t[:40]}" + (f"  →  '{ev}'" if mark == "=" and ev != t[:40] else ""))
 
-    # 한 번만 나온 사건은 잡음일 가능성이 커서 뺀다 (사람 확인 CSV에는 남김)
+    # 회차 다시 정하기: '가장 이른 언급'은 유출·루머 한두 개에 끌려간다 (예: 7화 때 돌던 '최강록 우승' 소문).
+    # 언급의 일정 비율(EP_SHARE) 이상이 모인 가장 이른 공개 구간을 그 사건의 회차로 본다.
     events = memory.load(show)
+    from collections import Counter
+    for e in events:
+        ks = [int(r["written_after_episode"]) for r in support.get(e["text"], [])]
+        if len(ks) >= 3:
+            cnt, need = Counter(ks), max(2, EP_SHARE * len(ks))
+            run = 0
+            for k_ in sorted(cnt):
+                run += cnt[k_]
+                if cnt[k_] >= need or run >= max(need, len(ks) / 2):
+                    e["episode"] = k_
+                    break
+
+    # 한 번만 나온 사건은 잡음일 가능성이 커서 뺀다 (사람 확인 CSV에는 남김)
     keep = [e for e in events if e.get("hits", 1) >= min_hits]
     dropped = [e for e in events if e.get("hits", 1) < min_hits]
     memory.reset(show)

@@ -156,6 +156,7 @@
           const s = state.get(r.id);
           if (!s) continue;
           s.result = r;
+          remember(r.id, r);
           stats.judged++;
           decide(r.id);
         }
@@ -235,7 +236,10 @@
     const T = Math.min(0.95, Math.max(0.05, baseThreshold() + offset));
     const p = isAhead(r) ? r.p_spoiler : r.p_spoiler * 0.1; // 이미 본 내용이면 사실상 무해
 
-    s.why = buildWhy(r, p, T) + (s.timeExact ? "" : " · 작성 시각 추정");
+    const approx = s.timeExact ? "" : " · 작성 시각 추정";
+    s.whyFull = buildWhy(r, T, false) + approx;
+    s.whySafe = buildWhy(r, T, true) + approx; // 가린 댓글은 사건 내용을 숨김 (이유 표시가 스포가 되지 않게)
+    s.short = shortWhy(r);
 
     // 다시 묻기는 댓글당 한 번만 (서버가 reasoned를 안 넣어 줘도 무한 반복하지 않게)
     if (Math.abs(p - T) < 0.1 && !r.reasoned && !s.reasked && isAhead(r)) {
@@ -259,6 +263,7 @@
     if (!r) return decide(id); // 실패하면 첫 판단 결과로 결정 (흐린 채로 멈추지 않게)
     stats.reasoned++;
     s.result = r;
+    remember(id, r);
     decide(id);
   }
 
@@ -273,14 +278,35 @@
       .filter(Boolean);
     const hit = words.find((w) => s.text.includes(w));
     s.result = null;
-    s.why = (fallback ? "판단 엔진 연결 끊김 → 키워드로 대체 · " : "") + (hit ? `키워드 "${hit}" 포함` : "키워드 없음");
+    s.whyFull = s.whySafe =
+      (fallback ? "판단 엔진 연결 끊김 → 키워드로 대체 · " : "") + (hit ? `키워드 "${hit}" 포함` : "키워드 없음");
+    s.short = hit ? `${fallback ? "키워드 대체 · " : ""}키워드 "${hit}"` : "";
     setStatus(id, hit ? "hide" : "show");
   }
 
-  function buildWhy(r, p, T) {
+  // 이 댓글이 몇 화 내용을 말하는지 (사건이 확실하면 사건 회차, 아니면 작성 시점)
+  function episodeOf(r) {
+    if (r.matched_event && r.matched_event.p >= 0.5) return r.matched_event.episode;
+    return r.written_after_episode;
+  }
+
+  // 배지에 바로 보이는 짧은 이유
+  function shortWhy(r) {
+    const ep = episodeOf(r);
+    if (!isAhead(r)) return ep ? `이미 본 ${ep}화 내용` : "";
+    return [r.type, `${Math.round(r.p_spoiler * 100)}%`, ep != null ? `${ep}화 내용` : "", r.reasoned ? "추론" : ""]
+      .filter(Boolean)
+      .join(" · ");
+  }
+
+  function buildWhy(r, T, hideEvent) {
     const parts = [`${r.type}`, `스포 확률 ${Math.round(r.p_spoiler * 100)}%`];
     if (r.matched_event)
-      parts.push(`${r.matched_event.episode}화 사건 "${r.matched_event.text}"`);
+      parts.push(
+        hideEvent
+          ? `${r.matched_event.episode}화 사건 (내용은 가림)`
+          : `${r.matched_event.episode}화 사건 "${r.matched_event.text}"`,
+      );
     else if (r.written_after_episode != null)
       parts.push(`${r.written_after_episode}화 공개 후 작성`);
     parts.push(`기준 ${Math.round(T * 100)}%`);
@@ -321,6 +347,7 @@
     // 유튜브는 Trusted Types 보안 정책 때문에 innerHTML을 막아서, 요소를 하나씩 만들어 붙임
     const label = { hide: "스포 가림", blur: "스포 의심" }[status];
     if (label) b.append(h("span", { class: `bdk-label bdk-${status}` }, label));
+    if (s.short) b.append(h("span", { class: "bdk-reason" }, s.short));
     if (status === "hide" || status === "blur") {
       b.append(
         h("button", { "data-act": "reveal" }, "보기"),
@@ -335,7 +362,8 @@
           "스포였음",
         ),
       );
-    b.append(h("span", { class: "bdk-why", title: s.why || "" }, "ⓘ"));
+    const open = status === "show" || status === "error" || s.revealed;
+    b.append(h("span", { class: "bdk-why", title: (open ? s.whyFull : s.whySafe) || "" }, "ⓘ"));
     b.addEventListener("click", (e) => {
       const act = e.target?.dataset?.act;
       if (!act) return;
@@ -351,7 +379,7 @@
     const s = state.get(id);
     if (act === "reveal") {
       s.revealed = true;
-      s.el.classList.add("bdk-revealed");
+      setStatus(id, s.status); // 열린 상태로 다시 그림 (이유에 사건 내용도 표시)
       return;
     }
     // 사용자의 직접 결정은 이 댓글에 고정하고 저장 (회차 변경·새로고침에도 유지)
@@ -391,10 +419,51 @@
         if (otherId !== id && o.result?.type === type) decide(otherId);
   }
 
+  // ---------------------------------------------------------------- 스포 기억장 패널
+  // 판단 엔진이 짚어 준 사건을 회차별로 모아 보여줌. 아직 안 본 회차의 사건은 내용을 잠가 둠
+  const memory = new Map(); // 사건 → { episode, ids }
+  let memOpen = false;
+  function remember(id, r) {
+    const m = r.matched_event;
+    if (!m || !m.text || m.p < 0.5) return;
+    let e = memory.get(m.text);
+    if (!e) memory.set(m.text, (e = { episode: m.episode, ids: new Set() }));
+    e.ids.add(id);
+  }
+
+  function memoryView() {
+    const items = [...memory.entries()].sort((a, b) => a[1].episode - b[1].episode);
+    const locked = items.filter(([, e]) => e.episode > settings.watchedEpisode).length;
+    const head = h(
+      "button",
+      { class: "bdk-mem", "data-act": "mem" },
+      `🧠 스포 기억장 ${items.length}건${locked ? ` (🔒 ${locked})` : ""} ${memOpen ? "▴" : "▾"}`,
+    );
+    if (!memOpen) return [head];
+    const list = h("ul", { class: "bdk-memlist" });
+    if (!items.length) list.append(h("li", { class: "bdk-locked" }, "아직 찾은 사건이 없어요"));
+    for (const [text, e] of items) {
+      const isLocked = e.episode > settings.watchedEpisode;
+      list.append(
+        h(
+          "li",
+          { class: isLocked ? "bdk-locked" : "" },
+          `${e.episode}화 · ${isLocked ? "🔒 아직 안 본 사건" : text} (댓글 ${e.ids.size})`,
+        ),
+      );
+    }
+    return [head, list];
+  }
+
   // ---------------------------------------------------------------- 상태 표시
   const hud = document.createElement("div");
   hud.className = "bdk-hud";
   document.documentElement.appendChild(hud);
+  hud.addEventListener("click", (e) => {
+    if (e.target?.dataset?.act !== "mem") return;
+    memOpen = !memOpen;
+    refreshCounts();
+  });
 
   function refreshCounts() {
     let hidden = 0,
@@ -410,6 +479,7 @@
       h("br"),
       `가림 ${hidden} · 의심 ${blurred} · 추론 ${stats.reasoned}${stats.lastMs ? ` · 응답 ${stats.lastMs}ms` : ""}`,
     );
+    if (settings.mode !== "keyword") hud.append(h("br"), ...memoryView());
     if (down && settings.mode !== "keyword")
       hud.append(h("br"), h("span", { class: "bdk-warn" }, "⚠ 판단 엔진 연결 끊김 → 키워드로 대체 중"));
   }

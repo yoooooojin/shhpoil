@@ -243,3 +243,50 @@ def build_same_event_question(events):
     return {"same": {"type": "choice",
                      "instructions": "아래 문장과 같은 사건을 목록에서 고르세요. 표현이 달라도 같은 일이면 같은 사건입니다.",
                      "criteria": crit}}
+
+
+# ---- 스포 목록 방식 (SHEET): 이름으로 사건 후보를 고르지 않고, '아직 안 본 내용' 전체를 배경으로 주고 직접 묻는다
+SHEET_YES = "알게 됨"
+SHEET_NO = "모름"
+SHEET_INSTRUCTIONS = (
+    "시청자는 '본 회차'까지만 봤습니다. '아직 안 본 내용'은 그 뒤 회차에서 일어나는 일입니다. "
+    "이 시청자가 댓글(과 문맥)을 읽으면 '아직 안 본 내용'에 있는 결과를 알게 되거나 강하게 짐작하게 되는지 고르세요. "
+    "이름을 쓰지 않고 별명·메뉴·장면으로 돌려 말해도, 안 본 내용을 아는 사람만 쓸 수 있는 글이면 '알게 됨'입니다."
+)
+SHEET_CRITERIA = {
+    SHEET_YES: "안 본 회차의 결과(누가 이기거나 지는지, 진출·탈락·우승, 결승 진출자, 결승 메뉴나 장면, 점수)를 알려 주거나 짐작하게 함",
+    SHEET_NO: "안 본 결과를 알 수 없음: 출연자 칭찬·감상·응원, 이미 본 회차 이야기, 근거 없는 예상, 작품과 무관한 글",
+}
+
+
+def _sheet_line(e, table):
+    line = f"{e['episode']}화: {e['text']}"
+    extra = []
+    for p in e.get("people") or []:
+        al = (table.get(p) or [])[:3]
+        if al:
+            extra.append(f"{p}={'/'.join(al)}")
+    kw = [a for a in (e.get("aliases") or []) if a][:4]
+    if kw:
+        extra.append("열쇠말 " + "/".join(kw))
+    return line + (f" ({'; '.join(extra)})" if extra else "")
+
+
+def build_sheet_state(show, comment, events, w, max_seen=12):
+    """스포 목록 판정용 상태: 본 회차, 이미 본 내용(최근 것 일부), 아직 안 본 내용(전부)."""
+    table = people_aliases(show) if show else {}
+    later = sorted([e for e in events if e["episode"] > w], key=lambda e: e["episode"])
+    seen = sorted([e for e in events if e["episode"] <= w], key=lambda e: -e["episode"])[:max_seen]
+    state = {"작품": show, "본 회차": f"{w}화까지 봄",
+             "이미 본 내용": "\n".join(_sheet_line(e, table) for e in sorted(seen, key=lambda e: e["episode"])) or "없음",
+             "아직 안 본 내용": "\n".join(_sheet_line(e, table) for e in later),
+             "댓글": comment["text"]}
+    if comment.get("context"):
+        state["문맥"] = comment["context"]
+    if comment.get("clues"):
+        state["단서"] = format_clues(comment["clues"])
+    return state, len(later)
+
+
+def build_sheet_question():
+    return {"reveal": {"type": "choice", "instructions": SHEET_INSTRUCTIONS, "criteria": dict(SHEET_CRITERIA)}}

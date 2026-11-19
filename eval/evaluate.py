@@ -359,6 +359,7 @@ def main():
                               "matched_event": (x.get("matched_event") or {}).get("text", ""),
                               "matched_ep": (x.get("matched_event") or {}).get("episode", ""),
                               "reasoned": x.get("reasoned", ""),
+                              "p_event": x.get("p_event", ""), "p_sheet": x.get("p_sheet", ""),
                               **({f"kw_{m}": int(KB.predict(r["text"], kw, m)["blocked"]) for m in KB.modes(kw)} if kw else {})})
 
     with open(os.path.join(args.out, "metrics.json"), "w", encoding="utf-8") as f:

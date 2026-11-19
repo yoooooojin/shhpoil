@@ -35,7 +35,7 @@
   // 저장만 바뀌고 화면 전체를 다시 판단할 필요는 없는 설정
   const LEARNING_KEYS = ["typeOffsets", "overrides"];
   // 다시 판단할 필요 없이 화면 표시만 바뀌는 설정
-  const DISPLAY_KEYS = ["compare", "batchSize", "timeoutSec", "feedbackLog", "stats", "hudPos", "onboarded", "logOn", "logText", "agentLog", "logScenario"];
+  const DISPLAY_KEYS = ["compare", "batchSize", "timeoutSec", "feedbackLog", "stats", "hudPos", "onboarded", "logOn", "logText", "agentLog", "logScenario", "netflixDismissed"];
 
   let settings = { ...DEFAULTS };
   const state = new Map(); // id → { el, text, postedAt, result, status }

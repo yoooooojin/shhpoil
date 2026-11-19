@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "쉿스포 (Shhpoil)",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "내가 본 데까지만 보여주는 스포일러 판정 에이전트 (해커톤 프로토타입)",
   "permissions": [
     "storage",
@@ -38,6 +38,15 @@
         "content.css"
       ],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.netflix.com/*"
+      ],
+      "js": [
+        "netflix.js"
+      ],
+      "run_at": "document_idle"
     }
   ],
   "icons": {
@@ -45,5 +54,15 @@
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "icons/icon48.png"
+      ],
+      "matches": [
+        "https://www.netflix.com/*"
+      ]
+    }
+  ]
 }

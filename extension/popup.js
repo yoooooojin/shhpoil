@@ -221,7 +221,8 @@ function logSummary(log) {
 function renderLog(log = []) {
   if (!log.length) return ($("logCount").textContent = "아직 없음");
   const s = logSummary(log);
-  $("logCount").textContent = `${s.lines}줄 · 판정 ${s.judgeCalls}번 · 가림 ${s.hidden} · 흐림 ${s.blurred} · 학습 ${s.learned}${s.errors ? ` · 오류 ${s.errors}` : ""}`;
+  const name = log.find((e) => e.scenario)?.scenario;
+  $("logCount").textContent = `${name ? `기록 중: "${name}" · ` : "⚠ 새로 시작을 안 눌렀어요 · "}${s.lines}줄 · 판정 ${s.judgeCalls}번 · 가림 ${s.hidden} · 흐림 ${s.blurred} · 학습 ${s.learned}${s.errors ? ` · 오류 ${s.errors}` : ""}`;
 }
 chrome.storage.local.get({ agentLog: [] }, (s) => renderLog(s.agentLog));
 $("logOn").addEventListener("change", (e) => {
@@ -229,7 +230,8 @@ $("logOn").addEventListener("change", (e) => {
   if (e.target.checked) $("logBox").open = true;
 });
 $("logText").addEventListener("change", (e) => save({ logText: e.target.checked }));
-$("logScenario").addEventListener("change", (e) => save({ logScenario: e.target.value.trim() }));
+// 글자를 칠 때마다 저장 (팝업은 바깥을 누르면 바로 닫혀서, change만 쓰면 이름이 저장 안 될 수 있음)
+$("logScenario").addEventListener("input", (e) => save({ logScenario: e.target.value.trim() }));
 $("logStart").addEventListener("click", () =>
   chrome.storage.local.get(DEFAULTS, (st) => {
     const name = $("logScenario").value.trim() || st.logScenario || "시나리오";

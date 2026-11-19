@@ -42,6 +42,9 @@ MATCH_EXISTING_P = float(os.environ.get("MATCH_EXISTING_P", "0.6"))  # 이 이�
 MATCH_REPORT_P = float(os.environ.get("MATCH_REPORT_P", "0.3"))      # 이 이상이면 matched_event로 알려 줌
 # 기억장 뼈대는 기사에서 만든다 (learn_from_articles.py). 댓글은 기존 사건 매칭(언급 수·회차 보정)에만 쓰고, 새 사건 추가는 기본 끔
 LEARN_FROM_COMMENTS = os.environ.get("LEARN_FROM_COMMENTS", "0") == "1"
+# '감상·출연자 이야기'로 분류돼도 뒤 화 사건을 짚으면 스포일 수 있다 ("최강록 우승 미쳤다").
+# 0이면 예전 공식 그대로. dev에서 0 / 0.5 / 1 을 비교해 고른다.
+W_REACTION = float(os.environ.get("W_REACTION", "0"))
 
 
 def _after(k, w, approx=False):
@@ -81,7 +84,8 @@ def judge_one(show, w, c, reason, sync_memory):
 
     p = (ptype["결과 공개"] * (later + none_p * _after(k, w, approx))
          + ptype["유출 주장"] * (later + none_p * (1.0 if (k is None or k >= w) else 0.5))
-         + ptype["루머·추측"] * later)
+         + ptype["루머·추측"] * later
+         + ptype["감상·출연자 이야기"] * later * W_REACTION)
     p = max(0.0, min(1.0, p))
 
     # 행동: 확실한 스포에서 사건을 배운다

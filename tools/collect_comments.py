@@ -86,22 +86,40 @@ def load_schedule(src, show):
     return show, drops
 
 
-def search_windows(query, key, per_window):
-    """회차 공개 구간마다 그 기간에 올라온 영상 검색 → [(영상ID, 구간 설명)]"""
+def search_windows(query, key, per_window, long_only=False):
+    """회차 공개 구간마다 그 기간에 올라온 영상 검색 → [(영상ID, 구간 설명)]
+    long_only: 쇼츠 빼고 4분 넘는 영상만 (YouTube videoDuration medium=4~20분, long=20분+)"""
     found = []
     for i, (start, last) in enumerate(DROPS):
         end = DROPS[i + 1][0] if i + 1 < len(DROPS) else start + timedelta(days=14)
-        data = get(
-            "search", part="snippet", type="video", q=query, order="viewCount",
-            maxResults=per_window, regionCode="KR", relevanceLanguage="ko", key=key,
-            publishedAfter=start.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            publishedBefore=end.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        )
-        for it in data.get("items", []):
-            vid = it.get("id", {}).get("videoId")
-            if vid:
-                found.append((vid, f"{last}화 공개 후 ({start:%m/%d}~{end:%m/%d})"))
+        for dur in (("medium", "long") if long_only else (None,)):
+            extra = {"videoDuration": dur} if dur else {}
+            data = get(
+                "search", part="snippet", type="video", q=query, order="viewCount",
+                maxResults=per_window, regionCode="KR", relevanceLanguage="ko", key=key,
+                publishedAfter=start.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                publishedBefore=end.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                **extra,
+            )
+            for it in data.get("items", []):
+                vid = it.get("id", {}).get("videoId")
+                if vid:
+                    found.append((vid, f"{last}화 공개 후 ({start:%m/%d}~{end:%m/%d})"))
     return found
+
+
+def labeled_video_ids(folder="data/labeled"):
+    """이미 라벨링에 쓴 영상 ID (새 시험지가 기존 데이터와 겹치지 않게)"""
+    ids = set()
+    for p in Path(folder).glob("*.csv"):
+        try:
+            with p.open(encoding="utf-8-sig") as f:
+                for r in csv.DictReader(f):
+                    if r.get("video_id"):
+                        ids.add(r["video_id"])
+        except Exception:  # noqa: BLE001
+            pass
+    return ids
 
 
 # ---------------------------------------------------------------- 공개 일정 1순위: TVmaze (무료, 키 없음, 데이터는 CC BY-SA)
@@ -419,7 +437,9 @@ def main():
     ap.add_argument("--season", type=int, help="시즌 번호 (생략하면 이름 끝 숫자, 없으면 최신 시즌)")
     ap.add_argument("--save-as", help="추정 일정을 이 이름으로 저장 (예: 흑백요리사2_자동). 기존 작품과 비교 시험용")
     ap.add_argument("--write-shows", action="store_true", help="추정 일정을 엔진 engine/config/shows.json에 추가 (이미 있으면 안 건드림)")
-    ap.add_argument("--search", help="이 검색어로 회차 공개 구간마다 영상을 자동으로 찾음")
+    ap.add_argument("--search", action="append", help="이 검색어로 회차 공개 구간마다 영상을 자동으로 찾음 (여러 번 쓸 수 있음)")
+    ap.add_argument("--long", action="store_true", help="--search 때 쇼츠를 빼고 4분 넘는 영상만")
+    ap.add_argument("--exclude-labeled", action="store_true", help="data/labeled/의 CSV에 이미 있는 영상은 건너뜀")
     ap.add_argument("--per-window", type=int, default=3, help="--search 때 구간마다 고를 영상 수 (기본 3)")
     ap.add_argument("--max", type=int, default=300, help="영상당 최대 댓글 수 (기본 300)")
     ap.add_argument("--order", choices=["relevance", "time"], default="relevance",
@@ -462,13 +482,18 @@ def main():
 
     targets = [(video_id_of(v), "") for v in args.videos]
     if args.search:
-        try:
-            hits = search_windows(args.search, key, args.per_window)
-        except RuntimeError as e:
-            sys.exit(f"영상 검색 실패: {e}")
-        print(f'"{args.search}" 검색 → 영상 {len(hits)}개')
         known = {v for v, _ in targets}
-        targets += [(v, w) for v, w in hits if v not in known and not known.add(v)]
+        skip = labeled_video_ids() if args.exclude_labeled else set()
+        if skip:
+            print(f"이미 라벨링한 영상 {len(skip)}개는 건너뜀")
+        for q in args.search:
+            try:
+                hits = search_windows(q, key, args.per_window, args.long)
+            except RuntimeError as e:
+                sys.exit(f"영상 검색 실패: {e}")
+            new = [(v, w) for v, w in hits if v not in known and v not in skip and not known.add(v)]
+            print(f'"{q}" 검색 → 영상 {len(hits)}개 (새 영상 {len(new)}개)')
+            targets += new
 
     tag = f"{args.save_as}_" if args.save_as else ""
     out = Path(args.out or f"data/comments_{tag}{datetime.now():%Y%m%d_%H%M}.csv")

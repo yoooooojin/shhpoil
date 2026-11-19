@@ -49,8 +49,9 @@ LEARN_FROM_COMMENTS = os.environ.get("LEARN_FROM_COMMENTS", "0") == "1"
 W_REACTION = float(os.environ.get("W_REACTION", "0"))
 # 속도: 댓글 묶음을 동시에 Zoro에 보냄 (SGLang이 GPU에서 한꺼번에 처리). 1이면 예전처럼 하나씩.
 JUDGE_PARALLEL = int(os.environ.get("JUDGE_PARALLEL", "20"))
-# 사건 후보: 댓글에 나온 출연자 이름·별명으로 먼저 추림. 0이면 기억장 전체를 선택지로.
-PREFILTER = os.environ.get("PREFILTER", "1") == "1"
+# 사건 후보: 댓글에 나온 출연자 이름·별명으로 먼저 추림.
+# 1: 이름이 나온 사건만 / 0: 기억장 전체 / fallback: 이름이 나오면 그 사건만, 아무도 안 나오면 전체
+PREFILTER = os.environ.get("PREFILTER", "1")
 MAX_CANDIDATES = int(os.environ.get("MAX_CANDIDATES", "6"))
 
 
@@ -71,10 +72,12 @@ def judge_one(show, w, c, reason, sync_memory):
     k = schedule.episode_after(show, c.get("posted_at"))
     approx = c.get("posted_at_precision") == "approx"
     events = memory.for_question(show)
-    if PREFILTER:
+    if PREFILTER != "0":
         ctx = c.get("context") or ""
         look = c["text"] + (ctx.split("원댓글:", 1)[1] if "원댓글:" in ctx else "")  # 영상 제목은 빼고
-        events = Q.candidate_events(events, show, look, MAX_CANDIDATES)
+        cands = Q.candidate_events(events, show, look, MAX_CANDIDATES)
+        if cands or PREFILTER != "fallback":
+            events = cands
 
     tz = time.time()
     out = zoro_client.decide(Q.build_state(show, c), Q.build_questions(events, show), reasoning=reason)
@@ -152,8 +155,8 @@ def judge(body, reason=False, sync_memory=False):
                           "written_after_episode": schedule.episode_after(show, c.get("posted_at")),
                           "matched_event": None, "reasoned": False, "error": str(e)}
 
-    # 기억장을 고치는 모드(sync_memory)는 시간 순서가 중요해서 하나씩, 평소에는 동시에
-    if sync_memory or JUDGE_PARALLEL <= 1 or len(order) <= 1:
+    # 댓글로 새 사건을 배우는 모드만 시간 순서가 중요해서 하나씩, 평소(평가 포함)에는 동시에
+    if (sync_memory and LEARN_FROM_COMMENTS) or JUDGE_PARALLEL <= 1 or len(order) <= 1:
         for i in order:
             one(i)
     else:

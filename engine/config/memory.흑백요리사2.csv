@@ -10,6 +10,7 @@ episode,episode_range,event,people,aliases,check,source
 7,4~7,팀전 3라운드 에이스전 흑수저 승 - 최종 결과는 김미령 선택으로 미공개 엔딩,김미령,팀전;에이스전;마침면;우럭키봉봉;이모카세,,https://enews.imbc.com/News/ViewAmp/488964
 7,4~7,3라운드 에이스전 특별 심사위원으로 시즌1 셰프 등장 (최현석 · 에드워드 리),최현석;에드워드 리,특별 심사위원;특별심사위원;특심,[확인 필요] 커뮤니티 글 기준 (fanmaum). 여경래 등장 여부도 함께 확인,https://fanmaum.com/community/culinaryclasswars/122593282
 7,4~7,여경래 셰프 특별 심사위원으로 등장,여경래,특별 심사위원;특별심사위원;특심,[확인 필요] 등장 회차·인물을 기사로 확인 (dev 라벨 기준 7화),
+7,4~7,2라운드 프렌치 파파 탈락,프렌치 파파,,[후보] 스포츠경향 12/23 기사 확인 (상대 이름은 기사에 없음),https://sports.khan.co.kr/article/202512232309003
 10,8~10,흑백 팀전 최종 결과 백수저 승 (158 대 142) - 백수저 12명 전원 생존 흑수저 전원 탈락,,팀전,,https://fanmaum.com/community/culinaryclasswars/122780305
 10,8~10,패자부활전 라스트 박스 - 요리괴물 · 윤주모 생존,요리괴물;윤주모,패자부활;라스트 박스;브라운 스톡;재료 10개,,https://fanmaum.com/community/culinaryclasswars/122780305
 10,8~10,패자부활전 탈락 - 안녕 봉주르 · 바베큐 연구소장 · 중식 마녀 · 서울 엄마 · 뉴욕에 간 돼지곰탕 · 칼마카세 · 삐딱한 천재,안녕 봉주르;바베큐 연구소장;중식 마녀;서울 엄마;뉴욕에 간 돼지곰탕;칼마카세;삐딱한 천재,패자부활,,https://fanmaum.com/community/culinaryclasswars/122780305
@@ -24,3 +25,8 @@ episode,episode_range,event,people,aliases,check,source
 13,13,결승 최강록 vs 요리괴물 (주제 나를 위한 요리 · 90분),최강록;요리괴물,나를 위한 요리,,https://www.elle.co.kr/article/1895276
 13,13,최강록 최종 우승 (만장일치) · 요리괴물 준우승,최강록;요리괴물,만장일치;재도전해서 좋았다,,https://www.elle.co.kr/article/1895276
 13,13,결승 메뉴 - 최강록 깨두부 국물과 소주 vs 요리괴물 순댓국,최강록;요리괴물,순댓국;순대국;깨두부,[추가],https://www.ddaily.co.kr/page/view/2026011414292217177
+13,13,최강록 우승 소감 - 나한테 위로를 주고 싶었다 · 조림을 잘하는 척하며 살아왔다고 고백,최강록,,[후보] 디지털데일리 1/14 기사 확인 · 방송 확인 권장,https://www.ddaily.co.kr/page/view/2026011414292217177
+13,13,최강록 결승 요리 마무리 - 조림인간 오늘만큼은 조림에서 쉬어라,최강록,,[후보] 디지털데일리 1/14 · iMBC 1/14 기사 확인,https://enews.imbc.com/News/ViewAmp/490790
+13,13,최강록 마스터셰프 코리아 시즌2 이후 13년 만에 요리 서바이벌 우승 · 재도전 성공,최강록,,[후보] iMBC 1/14 기사 확인,https://enews.imbc.com/News/ViewAmp/490790
+13,13,최강록 우승 상금 3억 원,최강록,,[후보] 디지털데일리 1/14 기사 확인,https://www.ddaily.co.kr/page/view/2026011414292217177
+13,13,최강록 우승 후 자만하지 않겠다 · 영광을 요리사들과 나누겠다,최강록,,[후보] iMBC 1/14 기사 확인,https://enews.imbc.com/News/ViewAmp/490790

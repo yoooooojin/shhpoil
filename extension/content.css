@@ -164,12 +164,15 @@ html[dark] {
 .bdk-hud .bdk-fresh { color: #ffd36b; font-weight: 500; }
 .bdk-hud-ver { color: #777; font-size: 11px; margin-top: 8px; }
 
-/* 알림 한 줄 */
+/* 알림: 상태창 크기를 바꾸지 않게 상태창 바깥(위나 아래)에 말풍선으로 띄움 */
 .bdk-hud.bdk-toasting::after {
-  content: attr(data-toast); display: block; margin-top: 8px; padding-top: 8px; white-space: normal;
-  border-top: 1px solid rgba(255, 255, 255, .15); color: #ffd36b;
+  content: attr(data-toast); position: absolute; width: max-content; max-width: 280px; white-space: normal;
+  background: #212121; color: #ffd36b; padding: 8px 12px; border-radius: 10px; font-size: 12.5px; line-height: 1.45;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, .35); pointer-events: none;
+  bottom: calc(100% + 8px); right: 0;
 }
-.bdk-hud:not(.bdk-hud-open).bdk-toasting::after { margin: 0; padding: 0 14px 10px; border: 0; max-width: 260px; }
+.bdk-hud[data-v="top"].bdk-toasting::after { bottom: auto; top: calc(100% + 8px); }
+.bdk-hud[data-h="left"].bdk-toasting::after { right: auto; left: 0; }
 
 /* ---------- 지금 보는 영상 경고 ---------- */
 .bdk-guard-host { position: relative; }

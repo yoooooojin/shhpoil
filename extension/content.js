@@ -731,11 +731,13 @@
     if (id) e.ids.add(id);
     if (fresh) {
       e.freshUntil = Date.now() + 20_000;
-      memOpen = hudOpen = true; // 새 사건이 들어오면 상태창과 패널을 펼쳐서 보여줌
+      // 상태창을 펼치면 화면을 가리고 크기가 바뀌어서, 접힌 채로 두고 말풍선 알림으로만 알려 줌 (눌러서 펼치면 기억장 패널이 열림)
+      toast(`🧠 스포 기억장에 ${ev.episode}화 사건 추가 → 비슷한 글도 다시 판단해요`);
       setTimeout(refreshCounts, 20_500);
     }
   }
 
+  const freshMem = () => [...memory.values()].filter((e) => e.freshUntil > Date.now()).length;
   function memoryView() {
     const items = [...memory.entries()].sort((a, b) => a[1].episode - b[1].episode);
     const locked = items.filter(([, e]) => e.episode > settings.watchedEpisode).length;
@@ -1071,7 +1073,10 @@
     if (drag.moved) return; // 끌어서 옮긴 건 클릭으로 안 침
     const act = e.target?.closest?.("[data-act]")?.dataset?.act;
     if (act === "mem") memOpen = !memOpen;
-    else if (act === "open") hudOpen = true;
+    else if (act === "open") {
+      hudOpen = true;
+      if (freshMem()) memOpen = true; // 방금 들어온 사건이 있으면 기억장 패널까지 펼쳐서 보여줌
+    }
     else if (act === "close") hudOpen = false;
     else if (act === "plus1") setWatched(settings.watchedEpisode + 1, "+1화");
     else if (act === "minus1" && settings.watchedEpisode > 0) setWatched(settings.watchedEpisode - 1, "−1화");
@@ -1155,6 +1160,8 @@
     hud.style.right = anchor.h === "right" ? `${dx}px` : "auto";
     hud.style.top = anchor.v === "top" ? `${dy}px` : "auto";
     hud.style.bottom = anchor.v === "bottom" ? `${dy}px` : "auto";
+    hud.dataset.v = anchor.v; // 알림 말풍선을 화면 안쪽으로 띄우려고
+    hud.dataset.h = anchor.h;
   }
   addEventListener("resize", () => applyAnchor());
   chrome.storage.local.get("hudPos", ({ hudPos }) => {
@@ -1167,7 +1174,8 @@
   function suggestEpisode(ep, why) {
     if (!ep || ep <= settings.watchedEpisode || nudgeSkipped.has(ep)) return;
     nudge = { ep, why };
-    hudOpen = true;
+    // 상태창을 펼치지 않고 접힌 채로 "· ?"만 붙임 (누르면 질문이 열림)
+    toast(`${why}. ${ep}화까지 보셨으면 상태창을 눌러 바꿀 수 있어요`);
     refreshCounts();
   }
 

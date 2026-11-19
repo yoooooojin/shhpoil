@@ -71,7 +71,8 @@ def learn_event(show, text, episode, source):
     """같은 사건이 있으면 회차·언급 수만 고치고, 없으면 추가. 결과를 문자열로."""
     existing = memory.load(show)
     if existing:
-        ans = zoro_client.decide({"작품": show, "문장": text}, Q.build_same_event_question(existing))["answers"]["same"]
+        cands = _same_candidates(existing, text)  # 선택지가 많으면 확률이 흩어져 같은 사건도 '새 사건'이 됨
+        ans = zoro_client.decide({"작품": show, "문장": text}, Q.build_same_event_question(cands))["answers"]["same"]
         probs = ans.get("probabilities") or {ans["choice"]: 1.0}
         best, p = max(probs.items(), key=lambda x: x[1])
         if best != "새 사건" and p >= SAME_P:
@@ -101,7 +102,7 @@ def load_events_csv(path):
 
 # ---------- 댓글로 기억장 자동 만들기 ----------
 RESULT_P = float(os.environ.get("AUTO_RESULT_P", "0.5"))     # '실제 결과가 담겨 있나' 예 확률이 이 이상인 글만
-SAME_CANDS = int(os.environ.get("AUTO_SAME_CANDS", "25"))
+SAME_CANDS = int(os.environ.get("AUTO_SAME_CANDS", "10"))
 EP_SHARE = float(os.environ.get("AUTO_EP_SHARE", "0.25"))      # 회차를 정할 때 이 비율 이상 언급이 모인 구간     # 같은 사건인지 물을 때 보여 줄 기존 사건 수
 LABELED_VIDEOS = {"58uo5T2BU8A", "0yD2KLHXuNs", "duKTefAbPpY", "7h2XvmRcNwM", "zwHzfr8IXPs",
                   "XT5mP8x72_U", "T-XNapr7z6Q", "m3Cj0MvS7fc", "ggvso2ilq_s", "hzN0SPCDIAs"}

@@ -1,0 +1,86 @@
+{
+  "show": "흑백요리사2",
+  "_note": "에이전트가 읽을 기사 목록. published(게시 시각)로 '몇 화 공개 후 기사인지'를 자동 계산합니다. 시각을 모르면 episode를 직접 적으세요(그 기사가 다루는 공개 묶음의 마지막 회차). 사이트가 막히면 기사 본문을 텍스트 파일로 저장하고 file에 경로를 적으면 됩니다.",
+  "articles": [
+    {
+      "url": "https://sports.khan.co.kr/article/202512161739003",
+      "published": "2025-12-16T17:39:00+09:00"
+    },
+    {
+      "url": "https://mobile.newsis.com/view/NISX20251217_0003443864",
+      "published": "2025-12-17T09:00:00+09:00"
+    },
+    {
+      "url": "https://fanplus.co.kr/community/misc/122438063",
+      "episode": 7
+    },
+    {
+      "url": "https://fanplus.co.kr/community/misc/122781442",
+      "episode": 10
+    },
+    {
+      "url": "https://www.kukinews.com/article/view/kuk202601060167",
+      "episode": 10
+    },
+    {
+      "url": "https://www.elle.co.kr/article/1894875",
+      "episode": 12
+    },
+    {
+      "url": "https://enews.imbc.com/News/ViewAmp/490682",
+      "episode": 12
+    },
+    {
+      "url": "https://www.heraldk.com/article/2026011218255705096",
+      "published": "2026-01-12T18:25:00+09:00"
+    },
+    {
+      "url": "https://www.ddaily.co.kr/page/view/2026011414292217177",
+      "published": "2026-01-14T14:29:00+09:00"
+    },
+    {
+      "url": "https://www.businessweekly.com.tw/style/blog/3020210",
+      "episode": 13
+    },
+    {
+      "url": "https://enews.imbc.com/News/RetrieveNewsInfo/487528",
+      "episode": 3
+    },
+    {
+      "url": "https://sports.khan.co.kr/article/202512232309003",
+      "episode": 7
+    },
+    {
+      "url": "https://fanmaum.com/community/culinaryclasswars/122780305",
+      "episode": 10
+    },
+    {
+      "url": "https://isplus.com/article/view/isp202512310070",
+      "episode": 10
+    },
+    {
+      "url": "https://supple.kr/news/cmjwkhqdt007z10emy09ysxw9",
+      "episode": 10
+    },
+    {
+      "url": "https://enews.imbc.com/News/ViewAmp/489904",
+      "episode": 12
+    },
+    {
+      "url": "https://enews.imbc.com/News/ViewAmp/489936",
+      "episode": 12
+    },
+    {
+      "url": "https://v.daum.net/v/FU3vuLe4J2",
+      "episode": 13
+    },
+    {
+      "url": "https://www.heraldk.com/article/2026011401194005980",
+      "episode": 13
+    },
+    {
+      "url": "https://www.elle.co.kr/article/1895276",
+      "episode": 13
+    }
+  ]
+}

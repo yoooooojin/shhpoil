@@ -243,3 +243,84 @@ def build_same_event_question(events):
     return {"same": {"type": "choice",
                      "instructions": "아래 문장과 같은 사건을 목록에서 고르세요. 표현이 달라도 같은 일이면 같은 사건입니다.",
                      "criteria": crit}}
+
+
+# ---- 스포 목록 방식 (SHEET): 이름으로 사건 후보를 고르지 않고, '아직 안 본 내용' 전체를 배경으로 주고 직접 묻는다
+SHEET_YES = "알게 됨"
+SHEET_NO = "모름"
+SHEET_INSTRUCTIONS = (
+    "시청자는 '본 회차'까지만 봤습니다. '아직 안 본 내용'은 그 뒤 회차에서 일어나는 일입니다. "
+    "이 시청자가 댓글(과 문맥)을 읽으면 '아직 안 본 내용'에 있는 결과를 알게 되거나 강하게 짐작하게 되는지 고르세요. "
+    "이름을 쓰지 않고 별명·메뉴·장면으로 돌려 말해도, 안 본 내용을 아는 사람만 쓸 수 있는 글이면 '알게 됨'입니다."
+)
+SHEET_CRITERIA = {
+    SHEET_YES: "안 본 회차의 결과(누가 이기거나 지는지, 진출·탈락·우승, 결승 진출자, 결승 메뉴나 장면, 점수)를 알려 주거나 짐작하게 함",
+    SHEET_NO: "안 본 결과를 알 수 없음: 출연자 칭찬·감상·응원, 이미 본 회차 이야기, 근거 없는 예상, 작품과 무관한 글",
+}
+
+
+# 예시 (SHEET_FEWSHOT=1): Nishi & Suzuki (RANLP 2025)에서 효과가 가장 컸던 힌트.
+# 평가 데이터가 새지 않게 '다른(가상) 작품'으로, 직접 스포·돌려 말한 스포·감상·별 내용 없는 글을 2개씩.
+SHEET_EXAMPLES = (
+    "\n\n예시 (가상의 요리 예능 '불꽃셰프', 시청자는 5화까지 봄. 안 본 내용: 8화 '김민준 결승 진출', "
+    "9화 '박서연 우승, 결승 메뉴 된장 리조또', 7화 '이도윤 팀전 탈락'):\n"
+    "- \"박서연 우승할 줄 알았다\" → 알게 됨 (결과를 직접 말함)\n"
+    "- \"이도윤 팀전에서 떨어질 때 너무 아쉬웠음\" → 알게 됨 (탈락을 직접 말함)\n"
+    "- \"결승에서 된장 리조또 나올 때 소름\" → 알게 됨 (이름 없이 결승 메뉴로 돌려 말함)\n"
+    "- \"마지막에 둘이 껴안는 장면에서 울었다 김민준 수고했어요\" → 알게 됨 (결승 장면과 진출자를 짐작하게 함)\n"
+    "- \"박서연 셰프 칼질 진짜 멋있다\" → 모름 (칭찬일 뿐 결과 없음)\n"
+    "- \"김민준 우승할 것 같은데 다들 어떻게 생각함?\" → 모름 (근거 없는 예상)\n"
+    "- \"3화 심사 너무 웃겼음 ㅋㅋ\" → 모름 (이미 본 회차 이야기)\n"
+    "- \"이 채널 편집 잘한다\" → 모름 (작품 결과와 무관)"
+)
+
+
+# 3단계 (SHEET_LEVELS=3): 돌려 말한 글이 '모름'으로 쏠리지 않게 중간 칸을 둔다
+SHEET_SURE = "확실히 알게 됨"
+SHEET_HINT = "짐작하게 됨"
+SHEET_CRITERIA3 = {
+    SHEET_SURE: "안 본 회차의 결과(누가 이기거나 지는지, 진출·탈락·우승, 결승 진출자, 점수)를 직접 말함",
+    SHEET_HINT: "결과를 직접 말하진 않지만 별명·메뉴·장면·반응으로 돌려 말해서, 안 본 내용을 아는 사람만 쓸 수 있는 글",
+    SHEET_NO: "안 본 결과와 관계없음: 출연자 칭찬·감상·응원, 이미 본 회차 이야기, 근거 없는 예상, 작품과 무관한 글",
+}
+
+
+def _sheet_line(e, table):
+    line = f"{e['episode']}화: {e['text']}"
+    extra = []
+    for p in e.get("people") or []:
+        al = (table.get(p) or [])[:3]
+        if al:
+            extra.append(f"{p}={'/'.join(al)}")
+    kw = [a for a in (e.get("aliases") or []) if a][:4]
+    if kw:
+        extra.append("열쇠말 " + "/".join(kw))
+    return line + (f" ({'; '.join(extra)})" if extra else "")
+
+
+def build_sheet_state(show, comment, events, w, max_seen=12):
+    """스포 목록 판정용 상태: 본 회차, 이미 본 내용(최근 것 일부), 아직 안 본 내용(전부)."""
+    table = people_aliases(show) if show else {}
+    later = sorted([e for e in events if e["episode"] > w], key=lambda e: e["episode"])
+    seen = sorted([e for e in events if e["episode"] <= w], key=lambda e: -e["episode"])[:max_seen]
+    state = {"작품": show, "본 회차": f"{w}화까지 봄",
+             "이미 본 내용": "\n".join(_sheet_line(e, table) for e in sorted(seen, key=lambda e: e["episode"])) or "없음",
+             "아직 안 본 내용": "\n".join(_sheet_line(e, table) for e in later),
+             "댓글": comment["text"]}
+    if comment.get("context"):
+        state["문맥"] = comment["context"]
+    if comment.get("clues"):
+        state["단서"] = format_clues(comment["clues"])
+    return state, len(later)
+
+
+def build_sheet_question(levels=2, fewshot=False):
+    crit = SHEET_CRITERIA3 if levels == 3 else SHEET_CRITERIA
+    ins = SHEET_INSTRUCTIONS + (SHEET_EXAMPLES if fewshot and levels != 3 else "")
+    return {"reveal": {"type": "choice", "instructions": ins, "criteria": dict(crit)}}
+
+
+def sheet_prob(probs, levels=2, half=0.5):
+    if levels == 3:
+        return float(probs.get(SHEET_SURE, 0.0)) + half * float(probs.get(SHEET_HINT, 0.0))
+    return float(probs.get(SHEET_YES, 0.0))

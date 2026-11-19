@@ -64,6 +64,14 @@ EVENT_SCOPE = os.environ.get("EVENT_SCOPE", "all")
 CLUE_LOW = float(os.environ.get("CLUE_LOW", "0.3"))
 CLUE_HIGH = float(os.environ.get("CLUE_HIGH", "0.75"))
 CLUE_MIN_P = float(os.environ.get("CLUE_MIN_P", "0.15"))
+# 스포 목록 방식: 0=끔(예전 방식만) / 1=켬. 켜면 Zoro를 한 번 더 불러 '아직 안 본 내용'을 알게 되는지 직접 묻는다
+SHEET = os.environ.get("SHEET", "0") == "1"
+COMBINE = os.environ.get("COMBINE", "max")        # event | sheet | max | mean : 최종 p를 어떻게 정할지
+SHEET_EARLY = float(os.environ.get("SHEET_EARLY", "0.5"))  # 안 본 회차가 공개되기 전에 쓴 글이면 (유출 말고는 알 수 없으니) 이만큼 곱함
+SHEET_LEVELS = int(os.environ.get("SHEET_LEVELS", "2"))   # 2: 알게 됨/모름 · 3: 확실히/짐작/모름
+SHEET_HALF = float(os.environ.get("SHEET_HALF", "0.5"))    # 3단계일 때 '짐작하게 됨'의 무게
+SHEET_FEWSHOT = os.environ.get("SHEET_FEWSHOT", "0") == "1"  # 목록 질문에 가상 작품 예시 8개
+_sheet_pool = ThreadPoolExecutor(max_workers=JUDGE_PARALLEL)
 _TS = re.compile(r"\b\d{1,2}:\d{2}(?::\d{2})?\b")
 
 
@@ -112,7 +120,14 @@ def judge_one(show, w, c, reason, sync_memory):
     has_clues = bool(c.get("clues"))
     ask_clue = CLUE_ASK and not has_clues and not reason  # 재판정 땐 단서 질문을 빼야 auto 모드가 괜히 추론하지 않음
     # 재판정(reason=true)일 때만 추론: 기본은 Zoro의 auto 모드 (확신이 낮을 때만 스스로 추론)
-    mode = (REASON_MODE if REASON_MODE != "on" else True) if reason else False
+    # off: 재판정도 추론 없이 (단서만 더 넣고 판단 헤드로 바로). 스포 판단은 주관적이라 추론이 오히려 일치도를 낮춘다는
+    # 모델 카드 안내 + 512토큰처럼 잘린 추론은 안 하느니만 못함(카드: 4096 이상) → 속도와 정확도 둘 다를 위해
+    mode = False if (not reason or REASON_MODE == "off") else (True if REASON_MODE == "on" else REASON_MODE)
+    sheet_fut = None
+    if SHEET:
+        st, n_later = Q.build_sheet_state(show, c, memory.load(show), w)
+        if n_later:
+            sheet_fut = _sheet_pool.submit(zoro_client.decide, st, Q.build_sheet_question(SHEET_LEVELS, SHEET_FEWSHOT), mode)
     out = zoro_client.decide(Q.build_state(show, c), Q.build_questions(events, show, ask_clue), reasoning=mode)
     zoro_ms = (time.time() - tz) * 1000
     ans = out["answers"]
@@ -137,6 +152,19 @@ def judge_one(show, w, c, reason, sync_memory):
          + ptype["루머·추측"] * later
          + ptype["감상·출연자 이야기"] * (later_max if REACTION_MODE == "max" else later) * W_REACTION)
     p = max(0.0, min(1.0, p))
+    p_event, p_sheet_raw, p_sheet = p, None, None
+    sheet_reasoned = False
+    if SHEET:
+        p_sheet_raw = 0.0
+        if sheet_fut is not None:
+            so = sheet_fut.result()
+            sheet_reasoned = bool(so["reasoned"])
+            sp = so["answers"]["reveal"].get("probabilities") or {so["answers"]["reveal"]["choice"]: 1.0}
+            p_sheet_raw = Q.sheet_prob(sp, SHEET_LEVELS, SHEET_HALF)
+        early = (k is not None and k <= w)  # 안 본 회차가 나오기 전에 쓴 글
+        p_sheet = p_sheet_raw * (SHEET_EARLY if early else 1.0)
+        p = {"event": p_event, "sheet": p_sheet, "max": max(p_event, p_sheet),
+             "mean": (p_event + p_sheet) / 2}.get(COMBINE, max(p_event, p_sheet))
 
     # 행동: 확실한 스포에서 사건을 배운다
     memory_update = None
@@ -160,7 +188,9 @@ def judge_one(show, w, c, reason, sync_memory):
         "type": max(ptype, key=ptype.get),
         "written_after_episode": k,
         "matched_event": matched,
-        "reasoned": bool(out["reasoned"]),
+        "reasoned": bool(out["reasoned"]) or sheet_reasoned,
+        "p_event": round(p_event, 4),
+        "p_sheet": None if p_sheet_raw is None else round(p_sheet_raw, 4),
         # ---- 아래는 추가 필드 (확장이 안 써도 됨)
         "type_probs": {name: round(v, 4) for name, v in ptype.items()},
         "reason_brief": (out.get("reasoning") or "")[:80] or None,
@@ -168,7 +198,7 @@ def judge_one(show, w, c, reason, sync_memory):
         "used_clues": sorted(k_ for k_, v in c["clues"].items() if v) if has_clues else None,
         "memory_update": memory_update,
         "latency_ms": round((time.time() - t0) * 1000, 1),
-        "timing": {"zoro_calls": 1, "zoro_ms": round(zoro_ms, 1), "n_event_options": len(events),
+        "timing": {"zoro_calls": 2 if sheet_fut is not None else 1, "zoro_ms": round(zoro_ms, 1), "n_event_options": len(events),
                    "reasoning": bool(reason), "reason_mode": mode if reason else None},
     }
 

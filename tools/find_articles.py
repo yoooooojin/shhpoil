@@ -1,6 +1,6 @@
 """회차 공개 구간마다 그 기간에 나온 뉴스 기사를 네이버 검색 API로 찾는다 (기억장 자동 만들기의 재료).
 
-    export NAVER_CLIENT_ID=...  NAVER_CLIENT_SECRET=...     # 키는 환경변수로만 (레포·채팅에 올리지 않기)
+    export NAVER_CLIENT_ID=...  NAVER_CLIENT_SECRET=...     # NAVER API HUB의 Client ID/Secret. 환경변수로만 (레포·채팅 X)
     python3 tools/find_articles.py --show 흑백요리사2 --per-window 8
     python3 engine/learn_from_articles.py --articles data/articles_흑백요리사2_auto.json --show 흑백요리사2_자동
 
@@ -21,13 +21,18 @@ from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
-API = "https://openapi.naver.com/v1/search/news.json"
+# 2026년부터 새 키는 NAVER API HUB(네이버 클라우드)에서만 발급: 주소와 헤더 이름이 다름
+HUB_API = "https://naverapihub.apigw.ntruss.com/search/v1/news"
+OLD_API = "https://openapi.naver.com/v1/search/news.json"   # 예전 개발자센터 키 (NAVER_API=old)
 RESULT_WORDS = ("탈락", "우승", "진출", "생존", "승리", "결승", "TOP", "톱", "부활", "결과", "최종")
 
 
 def search(query, cid, secret, start=1):
-    url = f"{API}?{urllib.parse.urlencode({'query': query, 'display': 100, 'start': start, 'sort': 'sim'})}"
-    req = urllib.request.Request(url, headers={"X-Naver-Client-Id": cid, "X-Naver-Client-Secret": secret})
+    qs = urllib.parse.urlencode({"query": query, "display": 100, "start": start, "sort": "sim"})
+    if os.environ.get("NAVER_API", "hub") == "old":
+        req = urllib.request.Request(f"{OLD_API}?{qs}", headers={"X-Naver-Client-Id": cid, "X-Naver-Client-Secret": secret})
+    else:
+        req = urllib.request.Request(f"{HUB_API}?{qs}", headers={"X-NCP-APIGW-API-KEY-ID": cid, "X-NCP-APIGW-API-KEY": secret})
     with urllib.request.urlopen(req, timeout=20) as r:
         return json.load(r).get("items", [])
 

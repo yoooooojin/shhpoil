@@ -28,15 +28,17 @@ html[dark] {
 .bdk-pending:not(.bdk-has-target) > :not(.bdk-badge),
 .bdk-pending.bdk-has-target .bdk-target { filter: blur(5px); }
 
-/* 확실한 스포 댓글: 본문을 접고 안내 상자만 보여 줌 */
-.bdk-hide.bdk-has-target:not(.bdk-revealed):not(.bdk-video) .bdk-target { display: none; }
+/* 확실한 스포 댓글: 본문을 진하게 흐림 (누르면 열림) */
+.bdk-hide.bdk-has-target:not(.bdk-revealed):not(.bdk-video) .bdk-target { filter: blur(7px); cursor: pointer; user-select: none; }
 /* 영상 카드·본문 지정이 없는 글: 흐림 */
 .bdk-hide:not(.bdk-revealed):not(.bdk-has-target) > :not(.bdk-badge),
 .bdk-video.bdk-hide:not(.bdk-revealed) > :not(.bdk-badge) { filter: blur(12px); pointer-events: none; user-select: none; }
 
 /* 스포 의심: 흐리게 */
 .bdk-blur:not(.bdk-revealed):not(.bdk-has-target) > :not(.bdk-badge),
-.bdk-blur.bdk-has-target:not(.bdk-revealed) .bdk-target { filter: blur(6px); opacity: .7; pointer-events: none; user-select: none; }
+.bdk-blur.bdk-has-target:not(.bdk-revealed) .bdk-target { filter: blur(5px); opacity: .75; user-select: none; }
+.bdk-blur.bdk-has-target:not(.bdk-revealed):not(.bdk-video) .bdk-target { cursor: pointer; }
+.bdk-video.bdk-blur:not(.bdk-revealed) .bdk-target { pointer-events: none; }
 
 .bdk-revealed:not(.bdk-has-target) > :not(.bdk-badge),
 .bdk-revealed.bdk-has-target .bdk-target { filter: none; opacity: 1; user-select: auto; pointer-events: auto; }
@@ -48,10 +50,15 @@ html[dark] {
 }
 .bdk-badge button { font: inherit; }
 
-/* 가린 글: 회색 상자 안에 한 줄 설명 + 버튼 */
+/* 가린 글: 상자 없이 작은 한 줄 (🤫 13화 · 보기 · 스포 아님 · 왜?) */
 .bdk-b-hide, .bdk-b-blur {
-  background: var(--bdk-panel); border-radius: 10px; padding: 8px 12px 6px; max-width: 640px;
+  flex-direction: row; align-items: center; flex-wrap: wrap; gap: 0 2px; margin: 0 0 2px;
+  font-size: 12px; color: var(--bdk-sub);
 }
+.bdk-b-hide .bdk-acts, .bdk-b-blur .bdk-acts { margin-left: 0; }
+.bdk-b-hide .bdk-acts button, .bdk-b-blur .bdk-acts button { padding: 1px 7px; font-size: 12px; color: var(--bdk-sub); }
+.bdk-b-hide .bdk-acts button.bdk-primary, .bdk-b-blur .bdk-acts button.bdk-primary { color: var(--bdk-accent); }
+.bdk-b-hide .bdk-detail, .bdk-b-blur .bdk-detail { flex-basis: 100%; margin: 0 0 4px; }
 .bdk-b-open { background: transparent; padding: 0; }
 .bdk-head { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
 .bdk-icon { font-size: 14px; }
@@ -72,14 +79,19 @@ html[dark] {
   position: absolute; top: 0; right: 0; z-index: 3; margin: 0; flex-direction: row; align-items: center; gap: 4px;
   background: var(--bdk-panel); border-radius: 99px; padding: 0 4px 0 10px; visibility: hidden;
 }
-.bdk-item:hover .bdk-b-show, .bdk-item:hover .bdk-b-error { visibility: visible; }
+@media (hover: hover) {
+  .bdk-item:hover .bdk-b-show, .bdk-item:hover .bdk-b-error { visibility: visible; }
+}
+.bdk-more { display: none; }
 .bdk-b-show .bdk-acts, .bdk-b-error .bdk-acts { margin-left: 0; }
 /* 비교 꼬리표나 펼친 이유가 있으면 늘 보이게 (본문 흐름 안에) */
 .bdk-b-show:has(.bdk-cmp), .bdk-b-show:has(.bdk-detail) {
   position: static; visibility: visible; background: none; padding: 0; flex-wrap: wrap; margin: 0 0 2px;
 }
 .bdk-b-show:has(.bdk-cmp) > .bdk-reason { display: none; }
-.bdk-item:hover .bdk-b-show:has(.bdk-cmp) > .bdk-reason { display: inline; }
+@media (hover: hover) {
+  .bdk-item:hover .bdk-b-show:has(.bdk-cmp) > .bdk-reason { display: inline; }
+}
 .bdk-b-show .bdk-detail { flex-basis: 100%; }
 
 .bdk-detail {
@@ -172,3 +184,18 @@ html[dark] {
 }
 .bdk-video.bdk-show > .bdk-badge.bdk-badge > .bdk-reason { display: none !important; }
 .bdk-video.bdk-show > .bdk-badge .bdk-detail, .bdk-video.bdk-revealed > .bdk-badge .bdk-detail { display: none; }
+
+/* ---------- 터치 화면(휴대폰·태블릿): 만질 때마다 버튼이 뜨지 않게 ---------- */
+@media (hover: none) {
+  .bdk-b-show { visibility: visible; background: none; padding: 0; }
+  .bdk-b-show > .bdk-reason, .bdk-b-show .bdk-acts > button { display: none; }
+  .bdk-b-show:not(:has(.bdk-cmp)) .bdk-acts { display: none; }
+  .bdk-item:not(.bdk-video) .bdk-b-show .bdk-more {
+    display: inline-block; border: 0; background: none; padding: 2px 6px; font-size: 14px; opacity: .45; cursor: pointer;
+  }
+  /* 🤫를 누르면 열림 */
+  .bdk-b-show.bdk-b-more-open { background: var(--bdk-panel); padding: 0 4px 0 6px; border-radius: 99px; flex-wrap: wrap; }
+  .bdk-b-show.bdk-b-more-open .bdk-more { opacity: 1; }
+  .bdk-b-show.bdk-b-more-open > .bdk-reason { display: inline; }
+  .bdk-b-show.bdk-b-more-open .bdk-acts, .bdk-b-show.bdk-b-more-open .bdk-acts > button { display: flex; }
+}

@@ -118,6 +118,21 @@
     }
   }
 
+  // 흐린 댓글 본문을 직접 눌러도 열림 (영상 카드는 "보기" 버튼으로만)
+  document.addEventListener(
+    "click",
+    (e) => {
+      const item = e.target.closest?.(".bdk-item.bdk-hide:not(.bdk-revealed):not(.bdk-video), .bdk-item.bdk-blur:not(.bdk-revealed):not(.bdk-video)");
+      if (!item || e.target.closest(".bdk-badge")) return;
+      const target = item.classList.contains("bdk-has-target") ? item.querySelector(".bdk-target") : item;
+      if (!target?.contains(e.target)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      onFeedback(item.dataset.bdkId, "reveal");
+    },
+    true,
+  );
+
   function badgeOf(el, id) {
     return el.querySelector(`.bdk-badge[data-for="${CSS.escape(id)}"]`);
   }
@@ -422,22 +437,21 @@
   function addBadge(el, id, status) {
     const s = state.get(id);
     const hidden = status === "hide" || status === "blur";
-    const b = h("div", { class: `bdk-badge bdk-b-${status}${s.revealed ? " bdk-b-open" : ""}` });
+    const b = h("div", { class: `bdk-badge bdk-b-${status}${s.revealed ? " bdk-b-open" : ""}${s.moreOpen ? " bdk-b-more-open" : ""}` });
     b.dataset.for = id;
     // 유튜브는 Trusted Types 보안 정책 때문에 innerHTML을 막아서, 요소를 하나씩 만들어 붙임
     const video = s.kind === "video";
     if (hidden) {
-      const label = s.revealed
-        ? "스포일 수 있는 글을 열어 봤어요"
-        : status === "hide"
-          ? video ? "스포 제목이라 가렸어요" : "스포라서 가렸어요"
-          : video ? "스포일 수 있는 제목" : "스포일 수 있어서 흐려 뒀어요";
+      // 흐림 자체가 "가렸다"는 신호라 설명 문구 없이: 🤫 + 몇 화 내용인지만 (자세한 건 "왜?")
       const head = h("div", { class: "bdk-head" });
-      head.append(h("span", { class: "bdk-icon" }, "🤫"), h("span", { class: "bdk-title" }, label));
-      if (s.short) head.append(h("span", { class: "bdk-reason" }, s.short));
+      head.append(h("span", { class: "bdk-icon", title: status === "hide" ? "스포라서 가렸어요" : "스포일 수 있어서 흐려 뒀어요" }, "🤫"));
+      const ep = (s.short || "").split(" · ")[0];
+      if (ep && !s.revealed) head.append(h("span", { class: "bdk-reason" }, ep));
       b.append(head);
-    } else if (s.short) {
-      b.append(h("span", { class: "bdk-reason" }, s.short));
+    } else {
+      // 터치 화면용: 보이는 글엔 흐린 🤫 버튼만, 눌러야 버튼이 열림 (휴대폰엔 마우스 올리기가 없어서)
+      if (status === "show") b.append(h("button", { class: "bdk-more", "data-act": "more", "aria-label": "쉿스포 메뉴" }, "🤫"));
+      if (s.short) b.append(h("span", { class: "bdk-reason" }, s.short));
     }
     const acts = h("div", { class: "bdk-acts" });
     if (hidden) {
@@ -469,6 +483,11 @@
   // ---------------------------------------------------------------- 학습
   async function onFeedback(id, act) {
     const s = state.get(id);
+    if (act === "more") {
+      s.moreOpen = !s.moreOpen;
+      setStatus(id, s.status);
+      return;
+    }
     if (act === "why") {
       s.whyOpen = !s.whyOpen;
       setStatus(id, s.status);

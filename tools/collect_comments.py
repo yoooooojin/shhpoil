@@ -30,6 +30,7 @@
 
 import argparse
 import csv
+import html
 import json
 import os
 import re
@@ -102,19 +103,20 @@ def search_windows(query, key, per_window):
 
 # ---------------------------------------------------------------- 공개 일정 추정
 # 새 회차가 공개되면 몇 시간 안에 "OO 7화 리뷰" 영상이 올라옴 → 7화가 제목에 든 영상 중 가장 이른 업로드 = 7화 공개 시각(조금 늦은 값)
-NOT_REVIEW = re.compile(r"예고|티저|선공개|예상|미리보기|teaser|trailer|preview", re.I)
+# 공개 전에 올라오는 영상(예고·예측)은 근거에서 뺌
+NOT_REVIEW = re.compile(r"예고|티저|선공개|예상|예측|미리보기|이깁니다|이길까|누가\s*이길|누가\s*우승|teaser|trailer|preview", re.I)
 ISO = "%Y-%m-%dT%H:%M:%SZ"
 
 
 def episodes_in(title):
-    """제목에서 회차 번호들: "7화", "7회", "EP.7", "E07", "4~7화" → {4,5,6,7}"""
+    """제목에서 회차 번호들: "7화", "7회", "4~7화" → {4,5,6,7}
+    "ep.1"·"E01"은 채널 자체의 편 번호인 경우가 많아서 안 씀 (예: "비하인드썰 ep.1")"""
     eps = set()
     for a, b in re.findall(r"(?<!\d)(\d{1,2})\s*[~\-–]\s*(\d{1,2})\s*[화회]", title):
         a, b = int(a), int(b)
         if a < b <= a + 20:
             eps.update(range(a, b + 1))
     eps.update(int(n) for n in re.findall(r"(?<!\d)(\d{1,2})\s*[화회](?!\w*차)", title))
-    eps.update(int(n) for n in re.findall(r"(?i)\bE(?:P|p)?\.?\s*0*(\d{1,2})(?!\d)", title))
     return {e for e in eps if 1 <= e <= 60}
 
 
@@ -125,12 +127,20 @@ def guess_schedule(show, key, max_ep=40):
         hits = []
         for it in items:
             sn = it.get("snippet", {})
-            title = sn.get("title", "")
+            title = html.unescape(sn.get("title", ""))
             if NOT_REVIEW.search(title) or base not in re.sub(r"\s+", "", title).lower():
                 continue
             if n in episodes_in(title):
-                hits.append((datetime.fromisoformat(sn["publishedAt"].replace("Z", "+00:00")), it["id"].get("videoId"), title))
+                hits.append((datetime.fromisoformat(sn["publishedAt"].replace("Z", "+00:00")), it["id"].get("videoId"), title, sn.get("channelId", "")))
         return hits
+
+    def earliest_confirmed(hits):
+        """하루 안에 다른 채널 영상이 하나 더 있는 가장 이른 영상 (혼자 일찍 올라온 엉뚱한 영상은 무시)"""
+        hits = sorted(set(hits))
+        for i, h in enumerate(hits):
+            if any(o[3] != h[3] and timedelta(0) <= o[0] - h[0] <= timedelta(hours=24) for o in hits[i + 1:]):
+                return h
+        return None
 
     cand, misses = {}, 0
     for n in range(1, max_ep + 1):
@@ -148,34 +158,34 @@ def guess_schedule(show, key, max_ep=40):
         sys.exit(f'"{show} N화" 영상을 못 찾았어요. 작품 이름을 유튜브 제목에 흔히 쓰는 형태로 바꿔 보세요')
 
     # 다른 시즌·옛 영상 걸러내기: 전체 중간값에서 120일 넘게 떨어진 영상은 버림
-    times = sorted(t for hs in cand.values() for t, _, _ in hs)
+    times = sorted(h[0] for hs in cand.values() for h in hs)
     mid = times[len(times) // 2]
-    first = {}
+    first, pool = {}, {}
     for n, hs in cand.items():
         ok = sorted(h for h in hs if abs((h[0] - mid).days) <= 120)
         if ok:
-            first[n] = ok[0]
+            pool[n] = ok
+            first[n] = earliest_confirmed(ok) or ok[-1]  # 확인 안 되면 일단 늦은 쪽에서 시작 (앞 구간 훑기로 당김)
 
     # 인기순은 조회수 높은(= 늦게 올라온) 영상 위주라 공개 시각이 며칠 늦게 잡힘
     # → 대략 시점 앞 3주를 최신순으로 훑어 가장 이른 리뷰를 찾음. 결과가 꽉 차면(50개) 구간 끝을 앞으로 당겨 다시
     print("  가장 이른 리뷰 찾는 중 (최신순으로 앞 구간 훑기)")
     for n in sorted(first):
         best = first[n]
-        before = best[0] + timedelta(minutes=1)
         after = best[0] - timedelta(days=21)
+        before = best[0] + timedelta(hours=24)  # 확인용 두 번째 영상까지 보이게
         for _ in range(4):
             data = get("search", part="snippet", type="video", q=f"{show} {n}화", order="date", maxResults=50,
                        regionCode="KR", relevanceLanguage="ko", key=key,
-                       publishedAfter=after.strftime(ISO), publishedBefore=before.astimezone(timezone.utc).strftime(ISO))
+                       publishedAfter=after.astimezone(timezone.utc).strftime(ISO), publishedBefore=before.astimezone(timezone.utc).strftime(ISO))
             items = data.get("items", [])
-            hits = sorted(matching(items, n))
-            if hits and hits[0][0] < best[0]:
-                best = hits[0]
+            pool[n] += matching(items, n)
             if len(items) < 50 or not items:
                 break
             # 꽉 찼으면 더 이른 영상이 잘렸을 수 있음 → 이번 결과의 가장 이른 시각 앞으로 다시
             oldest = min(datetime.fromisoformat(it["snippet"]["publishedAt"].replace("Z", "+00:00")) for it in items)
             before = oldest
+        best = earliest_confirmed(pool[n]) or best
         if best[0] < first[n][0]:
             print(f"    {n}화: {first[n][0].astimezone(KST):%m/%d %H시} → {best[0].astimezone(KST):%m/%d %H시}")
         first[n] = best
@@ -196,8 +206,9 @@ def guess_schedule(show, key, max_ep=40):
         if drops and (t - drops[-1][0]).total_seconds() < 20 * 3600:
             drops[-1][1] = n
         else:
-            # 리뷰는 공개 몇 시간 뒤에 올라오므로 3시간 앞당김: 늦게 잡으면 공개 직후 글이 이전 회차로 계산돼 새어 나감
-            drops.append([(t - timedelta(hours=3)).replace(minute=0, second=0, microsecond=0), n])
+            # 리뷰는 공개 몇 시간 뒤에 올라오므로 6시간 앞당김 (흑백요리사2 실측: 첫 리뷰가 공개 1~4시간 뒤)
+            # 늦게 잡으면 공개 직후 글이 이전 회차로 계산돼 새어 나감. 일찍 잡으면 조금 더 가리는 쪽으로 틀림
+            drops.append([(t - timedelta(hours=6)).replace(minute=0, second=0, microsecond=0), n])
     evidence = {n: {"video_id": est[n][1], "title": est[n][2], "published_at": est[n][0].isoformat()} for n in range(1, last_ep + 1)}
     return [(t, n) for t, n in drops], evidence
 

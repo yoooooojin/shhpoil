@@ -47,6 +47,8 @@ LEARN_FROM_COMMENTS = os.environ.get("LEARN_FROM_COMMENTS", "0") == "1"
 # '감상·출연자 이야기'로 분류돼도 뒤 화 사건을 짚으면 스포일 수 있다 ("최강록 우승 미쳤다").
 # 0이면 예전 공식 그대로. dev에서 0 / 0.5 / 1 을 비교해 고른다.
 W_REACTION = float(os.environ.get("W_REACTION", "0"))
+# sum: 뒤 화 사건들의 확률 합 (dev에서 더 좋았음) / max: 가장 확실한 사건 하나만
+REACTION_MODE = os.environ.get("REACTION_MODE", "sum")
 # 속도: 댓글 묶음을 동시에 Zoro에 보냄 (SGLang이 GPU에서 한꺼번에 처리). 1이면 예전처럼 하나씩.
 JUDGE_PARALLEL = int(os.environ.get("JUDGE_PARALLEL", "20"))
 # 사건 후보: 댓글에 나온 출연자 이름·별명으로 먼저 추림.
@@ -102,7 +104,7 @@ def judge_one(show, w, c, reason, sync_memory):
     p = (ptype["결과 공개"] * (later + none_p * _after(k, w, approx))
          + ptype["유출 주장"] * (later + none_p * (1.0 if (k is None or k >= w) else 0.5))
          + ptype["루머·추측"] * later
-         + ptype["감상·출연자 이야기"] * later_max * W_REACTION)  # 감상은 사건 하나를 확실히 짚을 때만 (여러 사건에 흩어진 확률 합은 안 씀)
+         + ptype["감상·출연자 이야기"] * (later_max if REACTION_MODE == "max" else later) * W_REACTION)
     p = max(0.0, min(1.0, p))
 
     # 행동: 확실한 스포에서 사건을 배운다

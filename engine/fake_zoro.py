@@ -71,12 +71,12 @@ def _label_score(text: str, label: str, desc: str) -> float:
     if label in ("무관",):
         return 0.6
     if label in ("해당 없음", "없음", "새 사건"):
-        return 1.0
+        return 3.0
     # 사건 같은 자유 라벨: 글자 겹침
     a, b = _tokens(text), _tokens(label + " " + (desc or ""))
     if not b:
         return 0.0
-    return 6.0 * len(a & b) / len(b)
+    return 1.2 * len(a & b)  # 겹치는 글자 조각 수 (별명이 설명에 들어 있으면 별명으로도 매칭)
 
 
 def decide_one(state, qid, q, reasoning):
@@ -134,6 +134,13 @@ def handle_chat(body):
     """사건 한 줄 추출 흉내: 마지막 user 메시지의 '댓글:' 뒤 문장을 짧게 자른다."""
     msgs = body.get("messages", [])
     user = next((m["content"] for m in reversed(msgs) if m.get("role") == "user"), "")
+    if "기사:" in user:  # 기사에서 사건 여러 줄 뽑기 흉내: 결과 단어가 든 문장을 짧게
+        body = user.split("기사:", 1)[1]
+        sents = [x.strip() for x in re.split(r"[.!?\n]", body) if re.search(CUES["결과 공개"], x)]
+        lines = [re.sub(r"\s+", " ", x)[:30] for x in sents[:5]] or ["없음"]
+        return {"id": "fake", "object": "chat.completion", "model": "fake-zoro",
+                "choices": [{"index": 0, "finish_reason": "stop",
+                             "message": {"role": "assistant", "content": "\n".join(lines)}}]}
     m = re.search(r"댓글:\s*(.+)", user, re.S)
     src = (m.group(1) if m else user).strip().split("\n")[0]
     src = re.sub(r"ㅋ+|ㅠ+|ㄷ+|[!?~.]+", " ", src).strip()

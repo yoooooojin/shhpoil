@@ -54,14 +54,15 @@ def decide(state, questions, reasoning=False):
     return _normalize(_post(f"{ZORO_URL}/v1/decide", body))
 
 
-def chat(prompt, max_tokens=64):
+def chat(prompt, max_tokens=64, first_line_only=True):
     body = {"model": ZORO_MODEL, "max_tokens": max_tokens, "temperature": 0,
             "messages": [{"role": "user", "content": prompt}]}
     raw = _post(f"{ZORO_CHAT_URL}/v1/chat/completions", body)
     text = raw["choices"][0]["message"]["content"]
     if "</think>" in text:  # 추론 흔적 제거
         text = text.split("</think>")[-1]
-    return text.strip().strip('"').split("\n")[0]
+    text = text.strip()
+    return text.strip('"').split("\n")[0] if first_line_only else text
 
 
 def health():

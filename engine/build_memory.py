@@ -1,9 +1,13 @@
-"""모은 댓글을 시간 순서대로 엔진에 흘려서 기억장을 미리 쌓는다 (초기 구축 · 시간 돌리기 시연 준비).
+"""모은 댓글을 시간 순서대로 엔진에 흘려 보낸다 (기억장 보정용).
+
+기억장의 뼈대는 기사에서 만든다 (learn_from_articles.py). 이 스크립트는 그 다음에 돌려서
+댓글이 기존 사건과 매칭될 때 언급 수를 올리고, 더 이른 댓글이면 회차를 앞으로 고친다.
+기본으로 기억장을 비우지 않는다(--reset으로 비움). 댓글에서 새 사건까지 배우려면
+엔진을 LEARN_FROM_COMMENTS=1로 켠다 (댓글은 감상이 많아 엉뚱한 사건이 들어가기 쉬움).
 
     python3 engine/build_memory.py data/all_comments.csv --show 흑백요리사2
     python3 engine/build_memory.py data/all_comments.csv --show 흑백요리사2 --until 2025-12-31   # 그 날까지만
 
-실제 유튜브는 기억장이 비어 있으면 돌려 말한 글을 못 잡으므로, 시연 전에 한 번 돌려 둔다.
 CSV는 tools/collect_comments.py 형식(comment_id, published_at, text, video_title) 또는
 eval 라벨 형식(id, posted_at, text, context) 모두 받는다. 라벨 칸은 보지 않는다.
 """
@@ -31,7 +35,7 @@ def main():
     ap.add_argument("--show", required=True)
     ap.add_argument("--url", default="http://localhost:8787")
     ap.add_argument("--until", help="이 날짜(포함)까지 쓰인 글만, 예: 2025-12-31")
-    ap.add_argument("--keep", action="store_true", help="기존 기억장을 지우지 않고 이어서 쌓기")
+    ap.add_argument("--reset", action="store_true", help="기억장을 비우고 시작 (기본은 기사로 만든 기억장 위에 이어서)")
     ap.add_argument("--batch", type=int, default=20)
     args = ap.parse_args()
 
@@ -47,7 +51,7 @@ def main():
         with urllib.request.urlopen(req, timeout=600) as r:
             return json.loads(r.read())
 
-    if not args.keep:
+    if args.reset:
         post("/memory/reset", {"show": args.show})
     for i in range(0, len(rows), args.batch):
         chunk = rows[i:i + args.batch]

@@ -28,6 +28,7 @@
     guardVideo: true, // 지금 보는 영상 자체가 스포면 재생 전에 경고
     batchSize: 20, // 판단 엔진에 한 번에 보내는 글 수 (엔진이 느리면 줄이기)
     compare: false, // 키워드 방식이었다면 어땠을지 같이 표시 (비교 보기)
+    shows: {}, // 작품별 방영 일정 (엔진 GET /shows)
     logOn: false, // 실행 로그 기록 (팝업에서 켬)
     logText: false, // 실행 로그에 글 원문까지 남길지
     overrides: {}, // 사용자가 직접 판정한 댓글: { 댓글id: { decision: "show" | "hide", ep: 누른 때의 본 회차 } }
@@ -35,7 +36,7 @@
   // 저장만 바뀌고 화면 전체를 다시 판단할 필요는 없는 설정
   const LEARNING_KEYS = ["typeOffsets", "overrides"];
   // 다시 판단할 필요 없이 화면 표시만 바뀌는 설정
-  const DISPLAY_KEYS = ["compare", "batchSize", "timeoutSec", "feedbackLog", "stats", "hudPos", "onboarded", "logOn", "logText", "agentLog", "logScenario", "netflixDismissed"];
+  const DISPLAY_KEYS = ["compare", "batchSize", "timeoutSec", "feedbackLog", "stats", "hudPos", "onboarded", "logOn", "logText", "agentLog", "logScenario", "netflixDismissed", "showsAt", "shows"];
 
   let settings = { ...DEFAULTS };
   const state = new Map(); // id → { el, text, postedAt, result, status }
@@ -950,6 +951,7 @@
 
   // ---------------------------------------------------------------- 새 회차 공개 알림 (방영 중인 작품)
   // 최근 2주 안에 새 회차가 공개됐는데 아직 그 전 회차로 설정돼 있으면 "보셨나요?"라고 먼저 물어봄
+  // 엔진의 GET /shows로 받은 일정(settings.shows)이 우선. 서버를 못 쓰는 환경(웹 체험판 등)만 내장 일정 사용
   const SCHEDULES = {
     흑백요리사2: [
       ["2025-12-16T17:00:00+09:00", 3],
@@ -960,7 +962,7 @@
     ],
   };
   function checkNewEpisode() {
-    const drops = SCHEDULES[settings.show] || [];
+    const drops = settings.shows?.[settings.show]?.drops || SCHEDULES[settings.show] || [];
     const now = Date.now();
     const recent = drops.filter(([t]) => now >= Date.parse(t) && now - Date.parse(t) < 14 * 864e5).pop();
     if (recent && recent[1] > settings.watchedEpisode) {

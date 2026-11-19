@@ -7,11 +7,12 @@
   python tools/collect_comments.py https://www.youtube.com/watch?v=영상ID 다른영상ID --max 300
 
 새 작품 기억장 재료 모으기 (영상도 자동으로 찾음)
-  python tools/collect_comments.py --schedule tools/schedules/새작품.json --search "새작품 리뷰" --order time
+  1) 엔진의 engine/config/shows.json 에 새 작품 일정을 적음 (일정은 이 한 곳에서만 관리)
+  2) python tools/collect_comments.py --show 새작품 --search "새작품 리뷰" --order time
+  → 일정은 engine/config/shows.json 에서 읽음 (--schedule 로 다른 파일이나 http://localhost:8790/shows 도 가능)
   → 회차 공개 구간마다 그 기간에 올라온 영상을 검색해 조회수 높은 순으로 몇 개씩 골라 댓글을 모음
   → 결과 CSV를 엔진의 learn_from_articles.py --comments 에 넣으면 사건을 뽑아 합쳐 기억장 초안을 만듦
-  일정 파일 모양: {"show": "흑백요리사2", "drops": [["2025-12-16T17:00:00+09:00", 3], ["2025-12-23T17:00:00+09:00", 7]]}
-                  (공개 시각, 그때까지 공개된 마지막 회차)
+  shows.json 모양: {"흑백요리사2": {"drops": [["2025-12-16T17:00:00+09:00", 3], ...]}}  (공개 시각, 그때까지 공개된 마지막 회차)
 
 결과: data/comments_YYYYMMDD_HHMM.csv (엑셀에서 바로 열림)
   - written_after_episode: 작성 시각 기준으로 몇 화까지 공개된 뒤였는지 (공개 일정으로 자동 계산)
@@ -53,13 +54,27 @@ FIELDS = [
 ]
 
 
-def load_schedule(path):
-    """일정 파일 → (작품명, DROPS)"""
-    data = json.loads(Path(path).read_text(encoding="utf-8"))
-    drops = sorted((datetime.fromisoformat(t), int(ep)) for t, ep in data["drops"])
+SHOWS_JSON = Path(__file__).resolve().parent.parent / "engine" / "config" / "shows.json"
+
+
+def load_schedule(src, show):
+    """엔진의 shows.json(또는 GET /shows 주소) → (작품명, DROPS)"""
+    if re.match(r"https?://", src):
+        with urllib.request.urlopen(src, timeout=10) as r:
+            data = json.load(r)
+    else:
+        data = json.loads(Path(src).read_text(encoding="utf-8"))
+    names = [k for k, v in data.items() if not k.startswith("_") and isinstance(v, dict) and "drops" in v]
+    if not show:
+        if len(names) != 1:
+            sys.exit(f"--show로 작품을 골라 주세요. 일정이 있는 작품: {', '.join(names)}")
+        show = names[0]
+    if show not in names:
+        sys.exit(f'"{show}" 일정이 없어요. shows.json에 먼저 적어 주세요. 있는 작품: {", ".join(names)}')
+    drops = sorted((datetime.fromisoformat(t), int(ep)) for t, ep in data[show]["drops"])
     if not drops:
-        sys.exit("일정 파일에 drops가 비어 있어요")
-    return data.get("show", ""), drops
+        sys.exit(f'"{show}"의 drops가 비어 있어요')
+    return show, drops
 
 
 def search_windows(query, key, per_window):
@@ -162,7 +177,8 @@ def collect(vid, key, limit, order, with_replies):
 def main():
     ap = argparse.ArgumentParser(description="유튜브 댓글 → 라벨링용 CSV")
     ap.add_argument("videos", nargs="*", help="영상 주소 또는 ID (여러 개 가능). --search를 쓰면 생략 가능")
-    ap.add_argument("--schedule", help="새 작품 공개 일정 JSON (기본: 흑백요리사2)")
+    ap.add_argument("--show", help="작품 이름 (shows.json의 키). 생략하면 흑백요리사2 내장 일정")
+    ap.add_argument("--schedule", help=f"일정 파일이나 GET /shows 주소 (기본: {SHOWS_JSON.relative_to(SHOWS_JSON.parents[2])})")
     ap.add_argument("--search", help="이 검색어로 회차 공개 구간마다 영상을 자동으로 찾음")
     ap.add_argument("--per-window", type=int, default=3, help="--search 때 구간마다 고를 영상 수 (기본 3)")
     ap.add_argument("--max", type=int, default=300, help="영상당 최대 댓글 수 (기본 300)")
@@ -179,8 +195,11 @@ def main():
         sys.exit("영상 주소를 넣거나 --search \"검색어\"를 써 주세요")
 
     global DROPS
-    if args.schedule:
-        show, DROPS = load_schedule(args.schedule)
+    if args.show or args.schedule:
+        src = args.schedule or str(SHOWS_JSON)
+        if not args.schedule and not SHOWS_JSON.exists():
+            sys.exit(f"{SHOWS_JSON} 이 없어요. --schedule 로 shows.json 경로나 http://localhost:8790/shows 를 알려 주세요")
+        show, DROPS = load_schedule(src, args.show)
         print(f"작품: {show} · 공개 {len(DROPS)}번 (마지막 {DROPS[-1][1]}화)")
 
     targets = [(video_id_of(v), "") for v in args.videos]

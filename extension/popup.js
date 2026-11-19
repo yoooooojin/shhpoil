@@ -19,6 +19,16 @@ const DEFAULTS = {
 };
 
 const $ = (id) => document.getElementById(id);
+
+// 작품 목록: 엔진(GET /shows)에 등록된 작품을 작품 칸 자동완성에 넣음
+function renderShows(shows) {
+  const names = Object.keys(shows || {});
+  if (!names.length) return;
+  const list = document.getElementById("shows");
+  list.replaceChildren(...names.map((n) => Object.assign(document.createElement("option"), { value: n })));
+}
+chrome.storage.local.get({ shows: {} }, (s) => renderShows(s.shows));
+chrome.runtime.sendMessage({ type: "shows" }, (res) => res?.ok && renderShows(res.shows));
 const save = (obj) => chrome.storage.local.set(obj);
 $("ver").textContent = `v${chrome.runtime.getManifest().version}`;
 

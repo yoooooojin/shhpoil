@@ -247,6 +247,9 @@ class Handler(SimpleHTTPRequestHandler):
             return super().do_GET()
         if url.path == "/health":
             return self._json({"ok": True, "engine": "mock-rules"})
+        if url.path == "/shows":
+            # 팀원 엔진과 같은 모양: {"작품": {"drops": [[공개 시각, 마지막 회차], ...]}}
+            return self._json({name: {"drops": [[t.isoformat(), ep] for t, ep in info["drops"]]} for name, info in SHOWS.items()})
         self.send_error(404)
 
     def do_POST(self):

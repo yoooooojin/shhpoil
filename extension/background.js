@@ -38,7 +38,7 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
 });
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  const handler = { judge: handleJudge, ytCommentTimes: handleYtTimes, health: handleHealth, ytVideoTimes: handleYtVideoTimes, report: handleReport, ytClues: handleYtClues }[msg.type];
+  const handler = { judge: handleJudge, ytCommentTimes: handleYtTimes, health: handleHealth, ytVideoTimes: handleYtVideoTimes, report: handleReport, ytClues: handleYtClues, shows: handleShows }[msg.type];
   if (!handler) return false;
   handler(msg)
     .then((res) => sendResponse({ ok: true, ...res }))
@@ -77,6 +77,24 @@ async function handleJudge(msg) {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return { data: await res.json(), ms: Date.now() - t0 };
 }
+
+// 작품별 방영 일정: 엔진(engine/config/shows.json)이 한 곳에서 관리 → GET /shows로 받아 저장
+// { "흑백요리사2": { "drops": [["2025-12-16T17:00:00+09:00", 3], ...] } }
+async function handleShows() {
+  const { serverUrl } = await chrome.storage.local.get(DEFAULTS);
+  const res = await fetch(`${serverUrl.replace(/\/$/, "")}/shows`, { signal: AbortSignal.timeout(5000) });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  const shows = {};
+  for (const [name, v] of Object.entries(data || {}))
+    if (!name.startsWith("_") && Array.isArray(v?.drops)) shows[name] = { drops: v.drops };
+  await chrome.storage.local.set({ shows, showsAt: new Date().toISOString() });
+  return { shows };
+}
+const refreshShows = () => handleShows().catch((e) => console.warn("[쉿스포] 작품 일정 받기 실패 (내장 일정 사용):", String(e)));
+chrome.runtime.onStartup.addListener(refreshShows);
+chrome.runtime.onInstalled.addListener(refreshShows);
+chrome.storage.onChanged.addListener((c, area) => area === "local" && c.serverUrl && refreshShows());
 
 // 판단 엔진이 살아 있는지 (끊겼을 때 복구 확인용)
 async function handleHealth() {

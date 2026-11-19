@@ -1,0 +1,3 @@
+쉿스포 아이콘은 Google Noto Emoji의 "shushing face"(🤫) 이미지를 그대로 사용했습니다.
+Noto Emoji © Google Inc. — Apache License 2.0
+https://github.com/googlefonts/noto-emoji/blob/main/svg/LICENSE

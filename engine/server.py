@@ -59,6 +59,8 @@ MAX_CANDIDATES = int(os.environ.get("MAX_CANDIDATES", "6"))
 # 단서 더 모으기: 애매한 글(확률이 이 범위)이면 에이전트가 어떤 단서를 더 볼지 골라 need_context로 요청
 CLUE_ASK = os.environ.get("CLUE_ASK", "1") == "1"
 REASON_MODE = os.environ.get("REASON_MODE", "auto")  # auto: Zoro가 확신 낮을 때만 추론 / on: 재판정 때 늘 추론
+# all: 기억장 전체에서 어느 사건인지 / later: 본 회차 뒤 사건만 선택지로 (같은 인물의 이전 회차 사건에 끌려가지 않게)
+EVENT_SCOPE = os.environ.get("EVENT_SCOPE", "all")
 CLUE_LOW = float(os.environ.get("CLUE_LOW", "0.3"))
 CLUE_HIGH = float(os.environ.get("CLUE_HIGH", "0.75"))
 CLUE_MIN_P = float(os.environ.get("CLUE_MIN_P", "0.15"))
@@ -97,6 +99,8 @@ def judge_one(show, w, c, reason, sync_memory):
     k = schedule.episode_after(show, c.get("posted_at"))
     approx = c.get("posted_at_precision") == "approx"
     events = memory.for_question(show)
+    if EVENT_SCOPE == "later":  # "아직 안 본 사건을 알려 주는가"만 묻는다: 본 회차까지의 사건은 선택지에서 뺌
+        events = [e for e in events if e["episode"] > w]
     if PREFILTER != "0":
         ctx = c.get("context") or ""
         look = c["text"] + (ctx.split("원댓글:", 1)[1] if "원댓글:" in ctx else "")  # 영상 제목은 빼고

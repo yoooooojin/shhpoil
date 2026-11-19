@@ -94,16 +94,19 @@ python mock-server/server.py          # http://localhost:8787  (macOS/Linux: pyt
 **실제 (Zoro-1, Brev GPU 서버)**
 
 ```bash
-# 서버 (Brev 인스턴스, tmux에서)
-python serve.py --mode decide --port 30001     # Zoro-1
-# TODO: engine/ 판단 API 서버 실행 방법 (포트 8787)
+# 서버 (Brev 인스턴스, tmux에서) · CUDA 13 이상 필요 (nvidia-smi로 확인)
+python3 engine/learn_from_articles.py --seed engine/config/memory.흑백요리사2.csv   # 스포 기억장
+nohup python3 engine/server.py > ~/engine.log 2>&1 &                                # 판단 엔진 :8787
+cd ../trida-stack/inference/zoro-1 && python serve.py --mode decide --port 30001   # Zoro-1 :30001
 ```
+
+처음부터 설치하는 순서와 엔진 옵션은 [`engine/README.md`](engine/README.md).
 
 내 노트북에서 서버에 붙기 (Windows는 WSL의 Ubuntu에서):
 
 ```bash
 brev login                                       # 팀 조직 선택
-brev port-forward ok-pink-gazelle-shhpoil -p 8790:8787
+brev port-forward unfair-indigo-mastodon-sshpoil-cu13 -p 8790:8787
 ```
 
 확장 팝업의 판단 엔진 주소를 `http://localhost:8790`으로 바꾸면 됩니다. 로컬 포트를 8790으로 두면 가짜 엔진(8787)과 동시에 켜 둘 수 있습니다.

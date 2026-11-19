@@ -314,21 +314,21 @@
     s.reasked = true;
     const round = s.round;
     await withClueSlot(async () => {
-      if (s.round !== round) return;
+      if (s.round !== round) return trace("라우팅", "화면 전체를 다시 판정해서 이 다시 묻기는 취소", { id, kind: "clue" });
       let clues = {};
       try {
         clues = (await Promise.race([s.site.clues(s.el, need, id, s.text), new Promise((r) => setTimeout(() => r({}), 6000))])) || {};
       } catch (e) {
         console.warn("[쉿스포] 단서 모으기 실패:", e);
       }
-      if (s.round !== round) return;
+      if (s.round !== round) return trace("라우팅", "화면 전체를 다시 판정해서 이 다시 묻기는 취소", { id, kind: "clue" });
       const got = Object.keys(clues);
       trace("관찰", got.length ? `단서 모음: ${clueLabel(got)}` : "요청한 단서를 못 구함 → 단서 없이 추론 모드로", {
         id, need, got, missing: need.filter((k) => !got.includes(k)),
         clues: settings.logText ? clues : undefined,
       });
       const res = await judge([id], true, got.length ? { [id]: clues } : {});
-      if (s.round !== round) return;
+      if (s.round !== round) return trace("라우팅", "화면 전체를 다시 판정해서 이 다시 묻기는 취소", { id, kind: "clue" });
       s.gathering = false;
       const r = res?.ok && res.data.results.find((x) => x.id === id);
       if (!r) {
@@ -456,10 +456,10 @@
     s.reasked = true;
     const round = s.round; // 기다리는 동안 설정이 바뀌어 다시 판단이 시작됐으면 이 응답은 버림
     const res = await withClueSlot(() => (s.round === round ? judge([id], true) : null));
-    if (s.round !== round || !res) return;
+    if (s.round !== round || !res) return trace("라우팅", "화면 전체를 다시 판정해서 이 다시 묻기는 취소", { id, kind: "reason" });
     const r = res?.ok && res.data.results.find((x) => x.id === id);
     if (!r) {
-      trace("오류", "추론 모드 응답 실패 → 첫 판정으로 결정", { id });
+      trace("오류", "추론 모드 응답 실패 → 첫 판정으로 결정", { id, error: String(res?.error || "응답 없음") });
       return decide(id); // 실패하면 첫 판단 결과로 결정 (흐린 채로 멈추지 않게)
     }
     trace("판단", `Zoro-1 다시 판정 받음 (${r.reasoned ? "Zoro가 추론함" : "Zoro가 확신해서 추론 건너뜀"})`, { id, ms: res.ms, reasoned: !!r.reasoned, reasoning_ms: r.reasoning_ms, type: r.type, p: pct(r.p_spoiler), before_p: pct(s.result?.p_spoiler), event_episode: r.matched_event?.episode ?? null, event_text: raw(r.matched_event?.text) });

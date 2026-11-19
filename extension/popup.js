@@ -189,11 +189,21 @@ $("fbClear").addEventListener("click", () => {
 
 // ---------------------------------------------------------------- 에이전트 실행 로그 (제출용 시나리오 로그)
 const STAGES = ["시작", "관찰", "판단", "라우팅", "행동", "학습", "오류", "복구"];
+function pendingNote(s) {
+  // 단서 요청 = 다시 판정 + 실패 + 취소 + (기록을 멈출 때 아직 줄 서 있던 것)
+  const left = s.clueAsked - s.clueJudged - s.clueFailed - s.clueCancelled;
+  return (s.clueCancelled ? ` · 취소 ${s.clueCancelled}` : "") + (left > 0 ? ` · 기록 끝날 때 아직 대기 ${left}` : "");
+}
 function logSummary(log) {
   const by = (st) => log.filter((e) => e.stage === st);
   const judged = by("판단").filter((e) => e.event.startsWith("Zoro-1"));
   const first = judged.filter((e) => e.event.startsWith("Zoro-1 판정"));
-  const ms = judged.map((e) => e.ms).filter((x) => x != null);
+  const again = judged.filter((e) => !e.event.startsWith("Zoro-1 판정"));
+  const avg = (xs) => {
+    const ms = xs.map((e) => e.ms).filter((x) => x != null);
+    return ms.length ? Math.round(ms.reduce((a, b) => a + b, 0) / ms.length) : null;
+  };
+  const errs = by("오류");
   const acts = by("행동");
   const count = (w) => acts.filter((e) => e.event === w || e.event.endsWith(`→ ${w}`)).length;
   return {
@@ -201,20 +211,26 @@ function logSummary(log) {
     judgeCalls: judged.length,
     firstCalls: first.length,
     judgedItems: first.reduce((n, e) => n + (e.count || 0), 0),
-    avgMs: ms.length ? Math.round(ms.reduce((a, b) => a + b, 0) / ms.length) : null,
-    reasoned: by("판단").filter((e) => e.event.includes("다시 판정") || e.event.includes("추론 모드")).length,
+    avgMs: avg(first),
+    avgAgainMs: avg(again),
+    reasoned: by("판단").filter((e) => e.event.startsWith("Zoro-1 다시 판정 받음")).length,
     thought: by("판단").filter((e) => e.reasoned === true).length,
     skipped: by("판단").filter((e) => e.reasoned === false).length,
-    routed: by("라우팅").filter((e) => !e.need).length,
+    routed: by("라우팅").filter((e) => !e.need && !e.event.includes("취소")).length,
     clueAsked: by("라우팅").filter((e) => e.need).length,
     clueJudged: by("판단").filter((e) => e.used_clues).length,
+    cancelled: by("라우팅").filter((e) => e.event.includes("취소")).length,
+    clueCancelled: by("라우팅").filter((e) => e.event.includes("취소") && e.kind === "clue").length,
+    clueFailed: errs.filter((e) => e.event.startsWith("단서 보고")).length,
+    reaskFailed: errs.filter((e) => e.event.startsWith("추론 모드")).length,
+    outages: errs.filter((e) => e.event.startsWith("엔진 끊김")).length,
     hidden: count("가림"),
     blurred: acts.filter((e) => e.event.startsWith("흐리게")).length,
     shown: count("그대로 보임"),
     guard: acts.filter((e) => e.event.includes("일시정지")).length,
     preview: acts.filter((e) => e.event.includes("미리보기")).length,
     learned: by("학습").length,
-    errors: by("오류").length,
+    errors: errs.length,
     recovered: by("복구").length,
   };
 }
@@ -340,14 +356,16 @@ function toMarkdown(log) {
     "",
     "| 항목 | 값 |",
     "| --- | --- |",
-    `| Zoro-1 판정 요청 | ${s.judgeCalls}번 (처음 판정 ${s.firstCalls}번 · 글 ${s.judgedItems}개${s.avgMs != null ? `, 평균 ${s.avgMs}ms` : ""}) |`,
-    `| 라우팅: Zoro가 단서 요청 → 모아서 다시 판정 | ${s.clueAsked}개 (다시 판정 ${s.clueJudged}개) |`,
-    `| 라우팅: 애매해서 추론 모드로 다시 물음 | ${s.routed}개 (응답 ${s.reasoned}개) |`,
+    `| Zoro-1 판정 요청 | ${s.judgeCalls}번 (처음 판정 ${s.firstCalls}번 · 글 ${s.judgedItems}개 · 다시 판정 ${s.judgeCalls - s.firstCalls}번) |`,
+    `| 응답 시간 평균 | 처음 판정 ${s.avgMs ?? "-"}ms (한 번에 여러 개) · 다시 판정 ${s.avgAgainMs ?? "-"}ms (글 1개, 추론 포함) |`,
+    `| 라우팅: Zoro가 단서 요청 → 모아서 다시 판정 | ${s.clueAsked}개 → 다시 판정 ${s.clueJudged} · 실패 ${s.clueFailed}${pendingNote(s)} |`,
+    `| 라우팅: 애매해서 추론 모드로 다시 물음 | ${s.routed}개 → 응답 ${s.reasoned} · 실패 ${s.reaskFailed} |`,
+    `| 라우팅: 화면 전체 다시 판정으로 취소한 다시 묻기 | ${s.cancelled}개 (본 회차·꼼꼼함을 바꾸면 이전 질문은 버리고 새로 판정) |`,
     `| 다시 판정에서 Zoro가 추론함 · 확신해서 건너뜀 | ${s.thought} · ${s.skipped} |`,
     `| 행동: 가림 · 흐림 · 그대로 | ${s.hidden} · ${s.blurred} · ${s.shown} |`,
     `| 행동: 영상 경고 · 미리보기 막음 | ${s.guard} · ${s.preview} |`,
     `| 학습: 사용자 반응 · 기억장 | ${s.learned} |`,
-    `| 오류 → 복구 | ${s.errors} → ${s.recovered} |`,
+    `| 엔진 끊김 → 자동 복구 | ${s.outages}번 → ${s.recovered}번 (오류 기록 ${s.errors}줄: 끊긴 동안의 요청 실패 포함) |`,
     "",
     "## 흐름",
     "",

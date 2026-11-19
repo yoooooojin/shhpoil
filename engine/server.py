@@ -55,6 +55,8 @@ JUDGE_PARALLEL = int(os.environ.get("JUDGE_PARALLEL", "20"))
 # 사건 후보: 댓글에 나온 출연자 이름·별명으로 먼저 추림.
 # 1: 이름이 나온 사건만 / 0: 기억장 전체 / fallback: 이름이 나오면 그 사건만, 아무도 안 나오면 전체
 PREFILTER = os.environ.get("PREFILTER", "1")
+P_SHIFT = float(os.environ.get("P_SHIFT", "0"))  # PREFILTER_TITLE=1이면 0.155 (dev2에서 같은 잘못 가림 기준 0.73 - 0.575)
+PREFILTER_TITLE = os.environ.get("PREFILTER_TITLE", "0")  # 0 | fallback | 1
 MAX_CANDIDATES = int(os.environ.get("MAX_CANDIDATES", "6"))
 # 단서 더 모으기: 애매한 글(확률이 이 범위)이면 에이전트가 어떤 단서를 더 볼지 골라 need_context로 요청
 CLUE_ASK = os.environ.get("CLUE_ASK", "1") == "1"
@@ -71,6 +73,9 @@ SHEET_EARLY = float(os.environ.get("SHEET_EARLY", "0.5"))  # 안 본 회차가 �
 SHEET_LEVELS = int(os.environ.get("SHEET_LEVELS", "2"))   # 2: 알게 됨/모름 · 3: 확실히/짐작/모름
 SHEET_HALF = float(os.environ.get("SHEET_HALF", "0.5"))    # 3단계일 때 '짐작하게 됨'의 무게
 SHEET_FEWSHOT = os.environ.get("SHEET_FEWSHOT", "0") == "1"  # 목록 질문에 가상 작품 예시 8개
+# mean일 때 확률 눈금 맞추기: dev·dev2에서 '예전 방식 기준 0.575'와 같은 잘못 가림이 나온 mean 기준이 0.38·0.42
+# → 0.575/0.40 ≈ 1.44배. 확장의 꼼꼼함 3단계(0.63/0.575/0.465)를 그대로 쓰려고. (test 데이터로 정하지 않음)
+SHEET_SCALE = float(os.environ.get("SHEET_SCALE", "1.44"))
 _sheet_pool = ThreadPoolExecutor(max_workers=JUDGE_PARALLEL)
 _TS = re.compile(r"\b\d{1,2}:\d{2}(?::\d{2})?\b")
 
@@ -113,6 +118,11 @@ def judge_one(show, w, c, reason, sync_memory):
         ctx = c.get("context") or ""
         look = c["text"] + (ctx.split("원댓글:", 1)[1] if "원댓글:" in ctx else "")  # 영상 제목은 빼고
         cands = Q.candidate_events(events, show, look, MAX_CANDIDATES)
+        title = ctx.split("\n원댓글:", 1)[0]
+        # 영상 제목으로도 후보 찾기: "제자한테 지고서"처럼 대상이 제목에만 있는 글
+        # fallback: 댓글에서 후보가 없을 때만 / 1: 늘 제목 이름까지 합쳐서
+        if title and (PREFILTER_TITLE == "1" or (PREFILTER_TITLE == "fallback" and not cands)):
+            cands = Q.candidate_events(events, show, look + " " + title, MAX_CANDIDATES)
         if cands or PREFILTER != "fallback":
             events = cands
 
@@ -151,7 +161,7 @@ def judge_one(show, w, c, reason, sync_memory):
          + ptype["유출 주장"] * (later + none_p * (1.0 if (k is None or k >= w) else 0.5))
          + ptype["루머·추측"] * later
          + ptype["감상·출연자 이야기"] * (later_max if REACTION_MODE == "max" else later) * W_REACTION)
-    p = max(0.0, min(1.0, p))
+    p = max(0.0, min(1.0, p - P_SHIFT))  # 눈금 맞추기 (제목 후보를 쓰면 p가 전반적으로 올라가서 dev2 기준으로 내림)
     p_event, p_sheet_raw, p_sheet = p, None, None
     sheet_reasoned = False
     if SHEET:
@@ -164,7 +174,7 @@ def judge_one(show, w, c, reason, sync_memory):
         early = (k is not None and k <= w)  # 안 본 회차가 나오기 전에 쓴 글
         p_sheet = p_sheet_raw * (SHEET_EARLY if early else 1.0)
         p = {"event": p_event, "sheet": p_sheet, "max": max(p_event, p_sheet),
-             "mean": (p_event + p_sheet) / 2}.get(COMBINE, max(p_event, p_sheet))
+             "mean": min(1.0, (p_event + p_sheet) / 2 * SHEET_SCALE)}.get(COMBINE, max(p_event, p_sheet))
 
     # 행동: 확실한 스포에서 사건을 배운다
     memory_update = None

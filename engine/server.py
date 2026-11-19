@@ -281,6 +281,8 @@ class Handler(SimpleHTTPRequestHandler):
         if u.path.startswith("/demo/"):
             self.path = u.path[len("/demo"):] or "/"
             return super().do_GET()
+        if u.path == "/shows":  # 작품별 방영 일정 (engine/config/shows.json). 확장이 받아서 작품 고르기에 씀
+            return self._json(schedule.raw())
         if u.path == "/health":
             name = engine_name()
             return self._json({"ok": name != "zoro-down", "engine": name})

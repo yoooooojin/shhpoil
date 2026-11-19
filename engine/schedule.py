@@ -23,9 +23,21 @@ def _parse(ts):
     return dt if dt.tzinfo else dt.replace(tzinfo=KST)  # 시간대가 없으면 한국 시간
 
 
+_mtime = None
+
+
+def raw():
+    """shows.json 그대로 (설명용 _note 같은 칸은 뺌). GET /shows 응답."""
+    with open(CONFIG, encoding="utf-8") as f:
+        data = json.load(f)
+    return {name: {k: v for k, v in info.items() if not k.startswith("_")} for name, info in data.items()}
+
+
 def shows():
-    global _shows
-    if _shows is None:
+    global _shows, _mtime
+    m = os.path.getmtime(CONFIG)
+    if _shows is None or m != _mtime:  # 파일을 고치면 엔진을 다시 켜지 않아도 새 작품이 반영됨
+        _mtime = m
         with open(CONFIG, encoding="utf-8") as f:
             raw = json.load(f)
         _shows = {}

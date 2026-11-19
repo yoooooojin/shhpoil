@@ -150,7 +150,7 @@ def learn_from_comment(show, text, episode, source):
     return ("+", text) if e else ("=", text)
 
 
-def build_from_comments(show, path, until=None, min_hits=2, review_out=None):
+def build_from_comments(show, path, until=None, min_hits=2, review_out=None, fresh=True):
     """① 거르기(결과 공개) → ② 사건 뽑기 → ③ 같은 사건 합치기 → ④ 가장 이른 작성 시점 = 회차 → ⑤ 사람 확인용 CSV"""
     import csv
     from concurrent.futures import ThreadPoolExecutor
@@ -161,6 +161,14 @@ def build_from_comments(show, path, until=None, min_hits=2, review_out=None):
             and (r.get("written_after_episode") or "").strip() not in ("", "0")]
     if until is not None:
         rows = [r for r in rows if int(r["written_after_episode"]) <= until]
+    if fresh:  # 영상마다 가장 이른 회차에 쓴 댓글만: 늦게 쓴 댓글은 회차가 다 13화로 붙어 버림
+        first = {}
+        for r in rows:
+            k = int(r["written_after_episode"])
+            first[r.get("video_id")] = min(first.get(r.get("video_id"), k), k)
+        n0 = len(rows)
+        rows = [r for r in rows if int(r["written_after_episode"]) == first[r.get("video_id")]]
+        print(f"따끈한 댓글만: {n0}개 → {len(rows)}개 (영상마다 처음 공개 구간에 쓴 글)")
     rows.sort(key=lambda r: r.get("published_at") or "")  # 이른 글부터: 사건의 회차가 처음 언급된 시점이 됨
     print(f"댓글 {len(rows)}개 (평가에 쓴 영상·댓글, 작성 시점 모름은 뺌)")
 
@@ -179,12 +187,33 @@ def build_from_comments(show, path, until=None, min_hits=2, review_out=None):
         t = zoro_client.chat(Q.EXTRACT_WITH_TITLE_PROMPT.format(show=show, title=r.get("video_title") or "", text=r["text"]),
                              max_tokens=64).strip().strip('"').rstrip(".")
         t = t.strip("'\" ")
-        ok = 3 <= len(t) <= 30 and t not in ("없음", "해당 없음") and any(w_ in t for w_ in Q.RESULT_WORDS)
+        ok = (3 <= len(t) <= 30 and t not in ("없음", "해당 없음") and any(w_ in t for w_ in Q.RESULT_WORDS)
+              and not t.startswith(Q.VAGUE_SUBJECTS) and not any(w_ in t for w_ in Q.OPINION_WORDS))
         return t if ok else None
 
     with ThreadPoolExecutor(max_workers=16) as pool:
         texts = list(pool.map(ext, kept))
     print(f"② 사건 뽑기: {sum(1 for t in texts if t)}개")
+
+    # ②-2 주인공 확인: 사건 문장의 첫 낱말(주인공)마다 한 번씩 Zoro에게 참가자인지 묻는다
+    subjects = {}
+    for r, t in zip(kept, texts):
+        if t:
+            subjects.setdefault(t.split()[0], []).append(r["text"])
+
+    def is_player(item):
+        name, examples = item
+        st = {"작품": show, "이름": name, "언급된 댓글": " / ".join(x[:80] for x in examples[:3])}
+        a = zoro_client.decide(st, Q.role_question(show, name))["answers"]["role"]
+        pr = a.get("probabilities") or {a["choice"]: 1.0}
+        return name, float(pr.get("참가자", 0)) >= 0.5
+
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        players = dict(pool.map(is_player, subjects.items()))
+    not_players = sorted(n for n, ok in players.items() if not ok)
+    if not_players:
+        print(f"②-2 참가자가 아니라서 뺀 주인공: {', '.join(not_players)}")
+    texts = [t if t and players.get(t.split()[0], False) else None for t in texts]
 
     support = {}
     for r, t in zip(kept, texts):  # 이른 글부터 차례로 (합치기는 순서가 중요해서 하나씩)
@@ -229,6 +258,7 @@ def main():
     ap.add_argument("--seed", help="정리해 둔 사건 목록 JSON을 그대로 넣기 (engine/config/events.<작품>.json)")
     ap.add_argument("--comments", help="댓글 CSV로 기억장 자동 만들기 (collect_comments.py 결과)")
     ap.add_argument("--min-hits", type=int, default=2, help="--comments: 이만큼 언급된 사건만 남김 (확인용 CSV에는 다 남음)")
+    ap.add_argument("--all-comments", action="store_true", help="--comments: 늦게 쓴 댓글도 씀 (기본은 영상마다 처음 공개 구간 댓글만)")
     ap.add_argument("--show", help="작품명 (없으면 JSON의 show)")
     ap.add_argument("--until-episode", type=int, help="이 회차까지 공개된 시점까지만 (시간 돌리기)")
     ap.add_argument("--keep", action="store_true", help="기존 기억장을 지우지 않고 이어서")
@@ -241,7 +271,7 @@ def main():
             sys.exit(f"Zoro에 연결이 안 돼요 ({zoro_client.ZORO_URL}).")
         if not args.keep:
             memory.reset(args.show)
-        build_from_comments(args.show, args.comments, args.until_episode, args.min_hits)
+        build_from_comments(args.show, args.comments, args.until_episode, args.min_hits, fresh=not args.all_comments)
         events = sorted(memory.load(args.show), key=lambda e: (e["episode"], -e.get("hits", 1)))
         print(f"\n기억장 {len(events)}개  (engine/memory_store/)")
         for e in events:

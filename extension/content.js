@@ -133,6 +133,7 @@
   function markItem(el, site) {
     el.classList.add("bdk-item");
     if (site.kind === "video") el.classList.add("bdk-video");
+    if (site.cls) el.classList.add(site.cls);
     const target = site.blurTarget?.(el);
     if (target) {
       el.classList.add("bdk-has-target");

@@ -234,7 +234,47 @@ window.BDK_SITES = [
         });
       }),
   },
+  {
+    // X(트위터): 검색·타임라인·게시글 화면의 글 (사진·영상만 있고 글자가 없는 글은 아직 판단하지 않음)
+    name: "x",
+    cls: "bdk-x",
+    match: (loc) => ["x.com", "twitter.com", "mobile.x.com", "mobile.twitter.com"].includes(loc.hostname),
+    items: (root) => root.querySelectorAll('article[data-testid="tweet"]'),
+    idOf: (el) => {
+      const m = xStatusHref(el).match(/\/status\/(\d+)/);
+      return m ? `x:${m[1]}` : null;
+    },
+    text: (el) => (el.querySelector('[data-testid="tweetText"]')?.innerText || "").trim(),
+    // X는 글마다 정확한 작성 시각(<time datetime>)이 있어서 API 키 없이 회차 비교가 됨
+    postedAt: (el) => {
+      const iso = el.querySelector("time")?.getAttribute("datetime");
+      return iso ? { iso, exact: true } : null;
+    },
+    context: (el) => {
+      const parent = xParentText(el)?.slice(0, 300);
+      return parent ? `[X 게시글의 답글]\n원글: ${parent}` : "[X 게시글]";
+    },
+    blurTarget: (el) => el.querySelector('[data-testid="tweetText"]'),
+    badgeHost: (el) => el.querySelector('[data-testid="tweetText"]')?.parentElement || null,
+    available: (el) => (xParentText(el) ? ["parent"] : []),
+    clues: async (el, want) => {
+      const p = want.includes("parent") ? xParentText(el) : null;
+      return p ? { parent: p } : {};
+    },
+  },
 ];
+
+// X 글의 고유 주소(/사용자/status/번호): 작성 시각 링크에 들어 있음
+function xStatusHref(el) {
+  return el.querySelector("a[href*='/status/'] time")?.closest("a")?.getAttribute("href") || "";
+}
+// 게시글 화면(/status/번호)에서 답글이면 맨 위 원글 본문
+function xParentText(el) {
+  const m = location.pathname.match(/\/status\/(\d+)/);
+  if (!m || xStatusHref(el).includes(`/status/${m[1]}`)) return null;
+  const main = [...document.querySelectorAll('article[data-testid="tweet"]')].find((a) => xStatusHref(a).includes(`/status/${m[1]}`));
+  return main?.querySelector('[data-testid="tweetText"]')?.innerText?.trim() || null;
+}
 
 // 쇼츠 카드: 홈·검색의 쇼츠 줄 (ytm-shorts-lockup-view-model-v2 안에 옛 이름이 한 겹 더 있음 → 바깥 것만 씀)
 const VIDEO_CARD =

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "쉿스포 (Shhpoil)",
-  "version": "0.8.3",
+  "version": "0.8.4",
   "description": "내가 본 데까지만 보여주는 스포일러 판정 에이전트 (해커톤 프로토타입)",
   "permissions": [
     "storage",
@@ -28,7 +28,11 @@
         "http://localhost/*",
         "http://127.0.0.1/*",
         "https://www.youtube.com/*",
-        "https://m.youtube.com/*"
+        "https://m.youtube.com/*",
+        "https://x.com/*",
+        "https://twitter.com/*",
+        "https://mobile.x.com/*",
+        "https://mobile.twitter.com/*"
       ],
       "js": [
         "sites.js",

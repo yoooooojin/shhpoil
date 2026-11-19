@@ -212,3 +212,8 @@ html[dark] {
 
 /* 가린 영상의 미리보기 재생 숨김 */
 .bdk-preview-blocked { visibility: hidden !important; }
+
+/* X: 글자는 본문만 흐리고, 같은 글의 사진·영상·링크 카드도 같이 흐림 (사진 속 스포 대비) */
+.bdk-x.bdk-pending :is([data-testid="tweetPhoto"], [data-testid="videoPlayer"], [data-testid="card.wrapper"]),
+.bdk-x.bdk-hide:not(.bdk-revealed) :is([data-testid="tweetPhoto"], [data-testid="videoPlayer"], [data-testid="card.wrapper"]),
+.bdk-x.bdk-blur:not(.bdk-revealed) :is([data-testid="tweetPhoto"], [data-testid="videoPlayer"], [data-testid="card.wrapper"]) { filter: blur(14px); pointer-events: none; }

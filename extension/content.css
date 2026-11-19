@@ -112,3 +112,4 @@ html[dark] .bdk-detail { background: #272727; color: #ccc; }
 .bdk-hud-ver { color: #888; font-size: 11px; margin-top: 6px; }
 .bdk-hud .bdk-warn, .bdk-hud .bdk-cmpline { display: block; }
 .bdk-hud:not(.bdk-hud-open).bdk-toasting::after { margin: 0; padding: 6px 14px 9px; max-width: 240px; }
+.bdk-hud-line button { border: 1px solid rgba(255,255,255,.3); background: transparent; color: #fff; border-radius: 99px; padding: 0 8px; font: 11px/1.6 inherit; cursor: pointer; }

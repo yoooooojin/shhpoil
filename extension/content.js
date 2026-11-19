@@ -595,7 +595,10 @@
     if (!vid) return null;
     if (isYouTube) {
       const shorts = location.pathname.startsWith("/shorts/");
-      const tabTitle = document.title.replace(/^\(\d+\)\s*/, "").replace(/\s*-\s*YouTube\s*$/, "").trim();
+      // 막 열었을 땐 탭 제목이 그냥 "YouTube"라서, " - YouTube"가 붙은 진짜 제목일 때만 씀
+      const tabTitle = / - YouTube\s*$/.test(document.title)
+        ? document.title.replace(/^\(\d+\)\s*/, "").replace(/\s*-\s*YouTube\s*$/, "").trim()
+        : "";
       const titleEl = shorts ? null : document.querySelector("ytd-watch-metadata h1");
       return {
         vid,
@@ -630,9 +633,10 @@
     }
     if (!force && cur.vid === guard.vid) return;
     hideGuard();
+    if (guard.passed && !guard.dismissed.has(`${cur.vid}@${settings.watchedEpisode}`)) guard.passed = null;
     guard.vid = cur.vid;
-    // 영상이 바뀐 직후엔 제목이 이전 영상 것일 수 있어서, 바뀔 때까지 잠깐 기다림 (최대 3초)
-    for (let i = 0; i < 15 && cur && (!cur.title || cur.title === prevTitle) && cur.vid !== guard.titleVid; i++) {
+    // 페이지를 막 열었거나 영상이 바뀐 직후엔 제목이 없거나 이전 영상 것이라, 바뀔 때까지 기다림 (최대 10초)
+    for (let i = 0; i < 50 && cur && (!cur.title || cur.title === prevTitle) && cur.vid !== guard.titleVid; i++) {
       await new Promise((r) => setTimeout(r, 200));
       cur = currentVideo();
     }
@@ -711,7 +715,9 @@
       if (act === "back") history.back();
       else {
         guard.dismissed.add(`${cur.vid}@${settings.watchedEpisode}`);
+        guard.passed = cur.vid; // 상태창에 "다시 가리기" 표시
         hideGuard();
+        refreshCounts();
       }
     });
     const host = cur.player && cur.player.isConnected ? cur.player : null;
@@ -826,6 +832,11 @@
     else if (act === "open") hudOpen = true;
     else if (act === "close") hudOpen = false;
     else if (act === "plus1") setWatched(settings.watchedEpisode + 1, "+1화");
+    else if (act === "reguard") {
+      for (const k of [...guard.dismissed]) if (k.startsWith(`${guard.passed}@`)) guard.dismissed.delete(k);
+      guard.passed = null;
+      checkCurrentVideo(true);
+    }
     else if (act === "nudge-yes" && nudge) setWatched(nudge.ep, "제안 수락");
     else if (act === "nudge-no" && nudge) {
       nudgeSkipped.add(nudge.ep);
@@ -936,6 +947,11 @@
       hud.append(box);
     }
 
+    if (guard.passed && guard.passed === urlVideoId() && !guard.overlay) {
+      const line = h("div", { class: "bdk-hud-line" }, "지금 영상은 스포 경고를 넘기고 보는 중 ");
+      line.append(h("button", { "data-act": "reguard" }, "다시 가리기"));
+      hud.append(line);
+    }
     hud.append(
       h(
         "div",

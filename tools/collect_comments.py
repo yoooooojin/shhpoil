@@ -12,7 +12,10 @@
   → 일정은 engine/config/shows.json 에서 읽음 (--schedule 로 다른 파일이나 http://localhost:8790/shows 도 가능)
   → 회차 공개 구간마다 그 기간에 올라온 영상을 검색해 조회수 높은 순으로 몇 개씩 골라 댓글을 모음
   → 결과 CSV를 엔진의 learn_from_articles.py --comments 에 넣으면 사건을 뽑아 합쳐 기억장 초안을 만듦
-  일정도 모를 때: --auto-schedule 을 붙이면 "N화" 리뷰 영상이 처음 올라온 시각으로 공개 일정을 추정함
+  일정도 모를 때: --auto-schedule
+    1순위 TVmaze(무료 방송 정보, 키·YouTube 포인트 없음)에서 회차별 공개일을 가져옴
+         한글 이름으로 못 찾으면 --en "Culinary Class Wars" 처럼 영어 제목을 알려 주세요. 시즌은 이름 끝 숫자나 --season
+    2순위 TVmaze에 없으면 "N화" 리뷰 영상이 처음 올라온 시각으로 추정 (YouTube 포인트 사용)
     python tools/collect_comments.py --show 새작품 --auto-schedule --search "새작품 리뷰" --order time
     → 추정 일정은 data/shows_새작품.json 에 저장 (근거 영상 포함). --write-shows 를 붙이면 엔진 shows.json에 바로 추가
     → 회차마다 검색 2~5번(1번에 할당량 100)이라 13화짜리면 약 3,000~5,000 사용
@@ -101,7 +104,70 @@ def search_windows(query, key, per_window):
     return found
 
 
-# ---------------------------------------------------------------- 공개 일정 추정
+# ---------------------------------------------------------------- 공개 일정 1순위: TVmaze (무료, 키 없음, 데이터는 CC BY-SA)
+TVMAZE = os.environ.get("TVMAZE_BASE", "https://api.tvmaze.com")
+
+
+def tvmaze_get(path, **params):
+    url = f"{TVMAZE}/{path}" + (f"?{urllib.parse.urlencode(params)}" if params else "")
+    req = urllib.request.Request(url, headers={"User-Agent": "shhpoil-collector (hackathon)"})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        return json.load(r)
+
+
+def split_season(show):
+    """"흑백요리사2" → ("흑백요리사", 2), "흑백요리사 시즌 2" → ("흑백요리사", 2), 숫자 없으면 (이름, None)"""
+    m = re.match(r"^(.*?\D)\s*(?:시즌|season)?\s*(\d{1,2})\s*$", show, re.I)
+    return (m.group(1).strip(), int(m.group(2))) if m else (show.strip(), None)
+
+
+def tvmaze_schedule(show, english=None, season=None):
+    """TVmaze에서 회차별 공개일 → (DROPS, 근거). 못 찾으면 None"""
+    name, s_guess = split_season(show)
+    results = []
+    try:
+        for q in [english, show, name]:
+            if q:
+                results = tvmaze_get("search/shows", q=q)
+                if results:
+                    break
+    except (urllib.error.URLError, ValueError, TimeoutError) as e:
+        print(f"  TVmaze 연결 실패: {e}")
+        return None
+    if not results:
+        print("  TVmaze에서 작품을 못 찾았어요 (영어 제목을 --en 으로 알려 주면 다시 찾아요)")
+        return None
+    sh = results[0]["show"]
+    eps = [e for e in tvmaze_get(f"shows/{sh['id']}/episodes") if e.get("number") and e.get("airdate")]
+    seasons = sorted({e["season"] for e in eps})
+    want = season or s_guess
+    if want not in seasons:
+        want = seasons[-1] if seasons and not season else None  # 이름 끝 숫자가 시즌이 아니면 최신 시즌
+    if want is None:
+        print(f"  TVmaze \"{sh['name']}\"에 시즌 {season}이 없어요 (있는 시즌: {seasons})")
+        return None
+    eps = sorted((e for e in eps if e["season"] == want), key=lambda e: e["number"])
+    times = []
+    for e in eps:
+        if e.get("airtime") and e.get("airstamp"):
+            t = datetime.fromisoformat(e["airstamp"])
+        else:
+            # 공개 시각이 없는 OTT 작품: 그날 0시(한국)로 잡음. 실제보다 이르게 = 틀려도 가리는 쪽
+            t = datetime.fromisoformat(e["airdate"]).replace(tzinfo=KST)
+        times.append((t, e["number"]))
+    drops = []
+    for t, n in times:
+        if drops and (t - drops[-1][0]).total_seconds() < 20 * 3600:
+            drops[-1][1] = n
+        else:
+            drops.append([t.astimezone(KST), n])
+    print(f'  TVmaze: "{sh["name"]}" 시즌 {want} · {len(eps)}화 ({sh.get("url", "")})')
+    evidence = {"source": "TVmaze (CC BY-SA)", "show": sh["name"], "season": want, "url": sh.get("url"),
+                "episodes": {e["number"]: e["airdate"] for e in eps}}
+    return [(t, n) for t, n in drops], evidence
+
+
+# ---------------------------------------------------------------- 공개 일정 2순위: 리뷰 영상으로 추정
 # 새 회차가 공개되면 몇 시간 안에 "OO 7화 리뷰" 영상이 올라옴 → 7화가 제목에 든 영상 중 가장 이른 업로드 = 7화 공개 시각(조금 늦은 값)
 # 공개 전에 올라오는 영상(예고·예측)은 근거에서 뺌
 NOT_REVIEW = re.compile(r"예고|티저|선공개|예상|예측|미리보기|이깁니다|이길까|누가\s*이길|누가\s*우승|teaser|trailer|preview", re.I)
@@ -229,7 +295,8 @@ def save_schedule(show, drops, evidence, write_shows):
             print(f'엔진 shows.json에 "{show}"가 이미 있어서 덮어쓰지 않았어요 (직접 비교해 보세요)')
         else:
             # 밑줄 칸은 엔진·/shows가 무시함 → 사람에게 "추정한 일정, 확인 필요" 표시
-            data[show] = {**entry, "_estimated": True, "_evidence": out.as_posix()}
+            src = evidence.get("source", "YouTube 리뷰 영상으로 추정") if isinstance(evidence, dict) else "추정"
+            data[show] = {**entry, "_estimated": True, "_source": src, "_evidence": out.as_posix()}
             # 엔진이 돌면서 읽는 파일이라 임시 파일에 다 쓴 뒤 한 번에 바꿔치기 (쓰는 도중 반쪽 파일을 읽지 않게)
             tmp = SHOWS_JSON.with_name(SHOWS_JSON.name + ".tmp")
             tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -348,6 +415,8 @@ def main():
     ap.add_argument("--show", help="작품 이름 (shows.json의 키). 생략하면 흑백요리사2 내장 일정")
     ap.add_argument("--schedule", help=f"일정 파일이나 GET /shows 주소 (기본: {SHOWS_JSON.relative_to(SHOWS_JSON.parents[2])})")
     ap.add_argument("--auto-schedule", action="store_true", help="--show 작품의 공개 일정을 유튜브 리뷰 영상으로 추정")
+    ap.add_argument("--en", help="TVmaze 검색용 영어 제목 (예: \"Culinary Class Wars\")")
+    ap.add_argument("--season", type=int, help="시즌 번호 (생략하면 이름 끝 숫자, 없으면 최신 시즌)")
     ap.add_argument("--save-as", help="추정 일정을 이 이름으로 저장 (예: 흑백요리사2_자동). 기존 작품과 비교 시험용")
     ap.add_argument("--write-shows", action="store_true", help="추정 일정을 엔진 engine/config/shows.json에 추가 (이미 있으면 안 건드림)")
     ap.add_argument("--search", help="이 검색어로 회차 공개 구간마다 영상을 자동으로 찾음")
@@ -360,8 +429,9 @@ def main():
     args = ap.parse_args()
 
     key = os.environ.get("YT_API_KEY")
-    if not key:
-        sys.exit('API 키가 없어요. PowerShell에서 먼저:  $env:YT_API_KEY="키"')
+    need_key = lambda: key or sys.exit('API 키가 없어요. PowerShell에서 먼저:  $env:YT_API_KEY="키"')
+    if args.videos or args.search:
+        need_key()
     if not args.videos and not args.search and not args.auto_schedule:
         sys.exit("영상 주소를 넣거나 --search \"검색어\"를 써 주세요")
 
@@ -369,11 +439,17 @@ def main():
     if args.auto_schedule:
         if not args.show:
             sys.exit("--auto-schedule 은 --show 작품이름 과 같이 써 주세요")
-        print(f'"{args.show}" 공개 일정 추정 중 (회차별 리뷰 영상 검색)')
-        try:
-            DROPS, evidence = guess_schedule(args.show, key)
-        except RuntimeError as e:
-            sys.exit(f"일정 추정 실패: {e}")
+        print(f'"{args.show}" 공개 일정 찾는 중 (1순위 TVmaze)')
+        found = tvmaze_schedule(args.show, args.en, args.season)
+        if found:
+            DROPS, evidence = found
+        else:
+            need_key()
+            print("2순위: 회차별 리뷰 영상으로 추정 (YouTube 포인트 사용)")
+            try:
+                DROPS, evidence = guess_schedule(args.show, key)
+            except RuntimeError as e:
+                sys.exit(f"일정 추정 실패: {e}")
         save_schedule(args.save_as or args.show, DROPS, evidence, args.write_shows)
         if not args.videos and not args.search:
             return

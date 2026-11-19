@@ -345,4 +345,4 @@ GET /health   →   { "ok": true, "engine": "zoro-1" }
 
 ---
 
-Built with [Zoro-1](https://huggingface.co/trillionlabs/Zoro-1) by Trillion Labs · 아이콘: [Noto Emoji](https://github.com/googlefonts/noto-emoji) 🤫 (Apache 2.0)
+Built with [Zoro-1](https://huggingface.co/trillionlabs/Zoro-1) by Trillion Labs · 아이콘: [Noto Emoji](https://github.com/googlefonts/noto-emoji) 🤫 (Apache 2.0) · 방영 일정 자동 수집: [TVmaze](https://www.tvmaze.com) (CC BY-SA)

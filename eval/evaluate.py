@@ -114,8 +114,9 @@ def run_engine(args, rows, w):
     if args.reason == "band":  # 확장처럼 애매한 글만 1개씩 다시 묻기
         band = [r for r in rows if r["id"] in preds and "p_spoiler" in preds[r["id"]]
                 and abs(preds[r["id"]]["p_spoiler"] - args.threshold) <= args.band]
-        for i in range(0, len(band)):
-            chunk = band[i:i + 1]
+        step = args.band_batch  # 1이면 확장처럼 하나씩, 크면 엔진이 동시에 처리 (평가가 빨라짐)
+        for i in range(0, len(band), step):
+            chunk = band[i:i + step]
             res = post(f"{args.url}/judge?reason=true",
                        {"show": args.show, "watched_episode": w, "comments": [to_comment(r) for r in chunk]})
             for x in res.get("results", []):
@@ -331,6 +332,7 @@ def main():
     ap.add_argument("--threshold", type=float, default=0.5)
     ap.add_argument("--reason", choices=["none", "always", "band"], default="none")
     ap.add_argument("--band", type=float, default=0.10)
+    ap.add_argument("--band-batch", type=int, default=1, help="애매한 글을 몇 개씩 묶어 다시 물을지 (평가 속도용)")
     ap.add_argument("--batch", type=int, default=20)  # 확장이 한 번에 보내는 최대 수
     ap.add_argument("--keywords")
     ap.add_argument("--memory", choices=["reset", "keep"], default="reset",

@@ -25,6 +25,7 @@
     sensitivity: 0.5, // 0: 확실한 스포만 ~ 1: 조금이라도 의심되면
     keywords: "흑백요리사,최강록,우승,탈락",
     typeOffsets: {}, // 학습 결과: 글 종류별 기준 보정값
+    guardVideo: true, // 지금 보는 영상 자체가 스포면 재생 전에 경고
     batchSize: 20, // 판단 엔진에 한 번에 보내는 글 수 (엔진이 느리면 줄이기)
     compare: false, // 키워드 방식이었다면 어땠을지 같이 표시 (비교 보기)
     overrides: {}, // 사용자가 직접 판정한 댓글: { 댓글id: { decision: "show" | "hide", ep: 누른 때의 본 회차 } }
@@ -32,7 +33,7 @@
   // 저장만 바뀌고 화면 전체를 다시 판단할 필요는 없는 설정
   const LEARNING_KEYS = ["typeOffsets", "overrides"];
   // 다시 판단할 필요 없이 화면 표시만 바뀌는 설정
-  const DISPLAY_KEYS = ["compare", "batchSize", "timeoutSec"];
+  const DISPLAY_KEYS = ["compare", "batchSize", "timeoutSec", "feedbackLog"];
 
   let settings = { ...DEFAULTS };
   const state = new Map(); // id → { el, text, postedAt, result, status }
@@ -311,11 +312,12 @@
   }
 
   // 키워드 방식(비교 기준): 팝업의 차단 키워드 중 하나라도 들어 있으면 가림
-  function keywordHit(text) {
+  function keywordHit(text, excludeShow = false) {
     return settings.keywords
       .split(",")
       .map((w) => w.trim())
       .filter(Boolean)
+      .filter((w) => !excludeShow || !settings.show.includes(w))
       .find((w) => text.includes(w));
   }
 
@@ -471,6 +473,7 @@
     }
     // 사용자의 직접 결정은 이 댓글에 고정하고 저장 (회차 변경·새로고침에도 유지)
     const decision = act === "notspoiler" ? "show" : "hide";
+    logFeedback(s, act); // 판단 엔진 개선용 기록 (팝업에서 CSV로 내려받기)
     settings.overrides = {
       ...(settings.overrides || {}),
       [id]: { decision, ep: settings.watchedEpisode },
@@ -556,6 +559,197 @@
       );
     }
     return [head, list];
+  }
+
+  // ---------------------------------------------------------------- 지금 보는 영상 경고
+  // 3화까지 봤는데 "최종회 결승 리뷰"를 열면, 영상 자체가 스포 → 플레이어를 덮고 일시정지한 뒤 계속 볼지 물어봄
+  const guard = { vid: null, urlVid: null, overlay: null, title: null, dismissed: new Set() };
+  const isYouTube = /(^|\.)youtube\.com$/.test(location.hostname);
+
+  function urlVideoId() {
+    if (isYouTube) {
+      const m = location.pathname.match(/^\/shorts\/([\w-]{11})/);
+      if (m) return m[1];
+      return location.pathname === "/watch" ? new URLSearchParams(location.search).get("v") : null;
+    }
+    return document.querySelector("[data-bdk-title]")?.dataset.vid || null; // 시연 페이지
+  }
+
+  function currentVideo() {
+    const vid = urlVideoId();
+    if (!vid) return null;
+    if (isYouTube) {
+      const shorts = location.pathname.startsWith("/shorts/");
+      const tabTitle = document.title.replace(/^\(\d+\)\s*/, "").replace(/\s*-\s*YouTube\s*$/, "").trim();
+      const titleEl = shorts ? null : document.querySelector("ytd-watch-metadata h1");
+      return {
+        vid,
+        title: (titleEl?.textContent || tabTitle).trim(),
+        titleEl,
+        player: shorts
+          ? document.querySelector("ytd-reel-video-renderer[is-active] #player-container, ytd-reel-video-renderer[is-active], #shorts-player")
+          : document.querySelector("#movie_player, ytd-player"),
+        posted: window.BDK_parseRelative(document.querySelector("ytd-watch-metadata #info, #info-container")?.textContent || ""),
+        channel: (document.querySelector("ytd-watch-metadata #channel-name, #owner #channel-name")?.textContent || "").trim(),
+      };
+    }
+    const h1 = document.querySelector("[data-bdk-title]");
+    return { vid, title: h1.textContent.trim(), titleEl: h1, player: document.querySelector(".player"), posted: h1.dataset.published, exact: true, channel: "" };
+  }
+
+  // 유튜브는 페이지를 새로 불러오지 않고 영상만 바꿔서, 주소의 영상 번호가 바뀌는지 지켜봄
+  setInterval(() => {
+    const v = urlVideoId();
+    if (v === guard.urlVid) return;
+    guard.urlVid = v;
+    checkCurrentVideo(true);
+  }, 700);
+
+  async function checkCurrentVideo(force = false) {
+    if (!settings.enabled || !settings.guardVideo) return hideGuard();
+    const prevTitle = guard.title;
+    let cur = currentVideo();
+    if (!cur) {
+      guard.vid = null;
+      return hideGuard();
+    }
+    if (!force && cur.vid === guard.vid) return;
+    hideGuard();
+    guard.vid = cur.vid;
+    // 영상이 바뀐 직후엔 제목이 이전 영상 것일 수 있어서, 바뀔 때까지 잠깐 기다림 (최대 3초)
+    for (let i = 0; i < 15 && cur && (!cur.title || cur.title === prevTitle) && cur.vid !== guard.titleVid; i++) {
+      await new Promise((r) => setTimeout(r, 200));
+      cur = currentVideo();
+    }
+    if (!cur || cur.vid !== guard.vid || !cur.title) return;
+    guard.title = cur.title;
+    guard.titleVid = cur.vid;
+    if (guard.dismissed.has(`${cur.vid}@${settings.watchedEpisode}`)) return;
+
+    let posted = cur.posted;
+    if (!cur.exact) {
+      const yt = sites.find((s) => s.name === "youtube-videos");
+      const times = (await yt?.resolveTimes?.([`v:${cur.vid}`]).catch(() => null)) || {};
+      posted = times[`v:${cur.vid}`] || posted;
+    }
+
+    let verdict = null;
+    const kw = (fallback) => {
+      const hit = keywordHit(cur.title, fallback);
+      return hit ? { ep: null, why: `${fallback ? "판단 엔진 연결 끊김 → 키워드로 대체 · " : ""}키워드 "${hit}" 포함` } : null;
+    };
+    if (settings.mode === "keyword") verdict = kw(false);
+    else {
+      const res = await new Promise((resolve) =>
+        chrome.runtime.sendMessage(
+          {
+            type: "judge",
+            payload: {
+              show: settings.show,
+              watched_episode: settings.watchedEpisode,
+              comments: [{ id: `cur:${cur.vid}`, text: cur.title, posted_at: posted || null, context: `[지금 보는 영상 제목] ${cur.channel}` }],
+            },
+          },
+          resolve,
+        ),
+      );
+      const r = res?.ok && res.data.results?.[0];
+      if (!r) verdict = kw(true);
+      else {
+        const T = Math.min(0.95, Math.max(0.05, baseThreshold() + (settings.typeOffsets[r.type] || 0)));
+        if (isAhead(r) && r.p_spoiler >= T) verdict = { ep: episodeOf(r), why: buildWhy(r, T, true) };
+      }
+    }
+    if (guard.vid !== cur.vid) return; // 기다리는 사이 다른 영상으로 넘어감
+    if (verdict) showGuard(cur, verdict);
+  }
+
+  function pauseAll() {
+    document.querySelectorAll("video").forEach((v) => v.pause());
+  }
+  // 경고가 떠 있는 동안 자동 재생되면 바로 멈춤
+  document.addEventListener("play", (e) => guard.overlay && e.target.pause?.(), true);
+
+  function showGuard(cur, verdict) {
+    hideGuard();
+    pauseAll();
+    const box = h("div", { class: "bdk-guard" });
+    const card = h("div", { class: "bdk-guard-card" });
+    card.append(
+      h("div", { class: "bdk-guard-title" }, "🤫 잠깐, 이 영상은 스포일 수 있어요"),
+      h(
+        "div",
+        { class: "bdk-guard-sub" },
+        `${verdict.ep ? `${verdict.ep}화 내용을 다루는 것 같아요` : "아직 안 본 내용이 담겨 있을 수 있어요"} · 지금 ${settings.watchedEpisode}화까지 봄`,
+      ),
+      h("div", { class: "bdk-guard-why" }, verdict.why),
+    );
+    const btns = h("div", { class: "bdk-guard-btns" });
+    btns.append(h("button", { "data-act": "back" }, "뒤로 가기"), h("button", { "data-act": "watch", class: "bdk-guard-go" }, "그래도 볼래요"));
+    card.append(btns);
+    box.append(card);
+    box.addEventListener("click", (e) => {
+      const act = e.target?.dataset?.act;
+      if (!act) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (act === "back") history.back();
+      else {
+        guard.dismissed.add(`${cur.vid}@${settings.watchedEpisode}`);
+        hideGuard();
+      }
+    });
+    const host = cur.player && cur.player.isConnected ? cur.player : null;
+    if (host) {
+      host.classList.add("bdk-guard-host");
+      host.append(box);
+    } else {
+      box.classList.add("bdk-guard-fixed");
+      document.documentElement.append(box);
+    }
+    cur.titleEl?.classList.add("bdk-guard-blur");
+    guard.overlay = box;
+    guard.titleEl = cur.titleEl;
+    toast("지금 보는 영상이 스포일 수 있어서 멈춰 뒀어요");
+  }
+
+  function hideGuard() {
+    guard.overlay?.remove();
+    guard.overlay = null;
+    guard.titleEl?.classList.remove("bdk-guard-blur");
+    guard.titleEl = null;
+  }
+
+  // ---------------------------------------------------------------- 피드백 기록 (잘못 판단한 글 모으기)
+  // 사용자가 "스포 아님 / 스포였음"을 누른 글과 그때 Zoro의 판단을 남김 → 팝업에서 CSV로 받아 판단 엔진 개선에 씀
+  async function logFeedback(s, act) {
+    const r = s.result || {};
+    const rec = {
+      at: new Date().toISOString(),
+      user: act === "notspoiler" ? "스포 아님" : "스포였음",
+      shown_as: { hide: "가림", blur: "의심", show: "보임" }[s.status] || s.status,
+      watched_episode: settings.watchedEpisode,
+      show: settings.show,
+      kind: s.kind === "video" ? "영상 제목" : "댓글",
+      id: s.el?.dataset?.bdkId || "",
+      text: s.text,
+      context: s.context || "",
+      posted_at: s.postedAt || "",
+      zoro_type: r.type || (s.fallback ? "(키워드 대체)" : ""),
+      p_spoiler: r.p_spoiler ?? "",
+      written_after_episode: r.written_after_episode ?? "",
+      matched_event: r.matched_event?.text || "",
+      matched_episode: r.matched_event?.episode ?? "",
+      reasoned: r.reasoned ? "Y" : "",
+      page: location.href,
+    };
+    try {
+      const { feedbackLog = [] } = await chrome.storage.local.get("feedbackLog");
+      feedbackLog.push(rec);
+      await chrome.storage.local.set({ feedbackLog: feedbackLog.slice(-1000) });
+    } catch (e) {
+      console.warn("[쉿스포] 피드백 기록 실패:", e);
+    }
   }
 
   // ---------------------------------------------------------------- 커뮤니티 학습: 스포 신고 → 기억장
@@ -680,11 +874,15 @@
     if (learningReset || changes.watchedEpisode || changes.show)
       for (const s of state.values()) s.revealed = false;
     if (!onlyLearning || learningReset) rejudgeAll();
+    if (changes.watchedEpisode || changes.show || changes.mode || changes.sensitivity || changes.enabled || changes.guardVideo)
+      checkCurrentVideo(true);
   });
 
   chrome.storage.local.get(DEFAULTS, (stored) => {
     settings = { ...DEFAULTS, ...stored };
     scan();
     refreshCounts();
+    guard.urlVid = urlVideoId();
+    checkCurrentVideo(true);
   });
 })();

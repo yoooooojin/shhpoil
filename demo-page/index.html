@@ -72,7 +72,11 @@
 
   function render(id) {
     const v = DEMO_VIDEOS.find((x) => x.id === id) || DEMO_VIDEOS[0];
-    document.getElementById("title").textContent = v.title;
+    const titleEl = document.getElementById("title");
+    titleEl.textContent = v.title;
+    // 확장이 "지금 보는 영상"을 판단할 때 읽는 값 (실제 유튜브에선 주소와 YouTube API로 얻음)
+    titleEl.dataset.vid = v.id;
+    titleEl.dataset.published = v.uploaded;
     document.getElementById("chan").textContent = v.channel;
     document.getElementById("desc").textContent = `조회수 예시 · ${fmtDate(v.uploaded)} 업로드`;
     document.getElementById("count").textContent = `댓글 ${v.comments.length}개`;

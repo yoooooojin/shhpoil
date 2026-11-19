@@ -37,6 +37,7 @@
   <div class="seg"><button data-mode="zoro">판정 모드</button><button data-mode="keyword">키워드 모드</button></div>
 
   <label class="switch" style="font-weight:400"><span>키워드 방식과 비교 보기</span><input type="checkbox" id="compare"></label>
+  <label class="switch" style="font-weight:400"><span>지금 보는 영상도 확인 (재생 전 경고)</span><input type="checkbox" id="guardVideo"></label>
 
   <div id="kwBox">
     <label>차단 키워드 (쉼표로 구분)</label>
@@ -60,6 +61,11 @@
   <label>학습된 기준 보정</label>
   <div class="small" id="offsets">아직 없음</div>
   <button class="link" id="resetLearning">학습 초기화</button>
+
+  <label>잘못 판단한 글 모음</label>
+  <div class="small" id="fbCount">아직 없음</div>
+  <div class="small">"스포 아님 / 스포였음"을 누를 때마다 글과 그때의 판단이 쌓여요. 판단 엔진 개선용.</div>
+  <button class="link" id="fbDownload">CSV 내려받기</button> · <button class="link" id="fbClear">비우기</button>
 
 <script src="popup.js"></script>
 </body>

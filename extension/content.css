@@ -72,3 +72,19 @@
 .bdk-badge button.bdk-why:hover { color: #555; background: none; }
 .bdk-detail { flex-basis: 100%; font-size: 12px; color: #555; background: #f4f4f4; border-radius: 6px; padding: 4px 8px; }
 html[dark] .bdk-detail { background: #272727; color: #ccc; }
+/* 지금 보는 영상 경고 */
+.bdk-guard-host { position: relative; }
+.bdk-guard {
+  position: absolute; inset: 0; z-index: 2147483000; display: grid; place-items: center;
+  background: rgba(10,10,12,.88); backdrop-filter: blur(18px); border-radius: inherit;
+  font: 14px/1.5 -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; color: #fff;
+}
+.bdk-guard.bdk-guard-fixed { position: fixed; border-radius: 0; }
+.bdk-guard-card { max-width: 440px; padding: 22px 24px; text-align: center; }
+.bdk-guard-title { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+.bdk-guard-sub { color: #ffd36b; font-weight: 600; }
+.bdk-guard-why { color: #bbb; font-size: 12px; margin-top: 6px; }
+.bdk-guard-btns { display: flex; gap: 10px; justify-content: center; margin-top: 16px; }
+.bdk-guard-btns button { border: 1px solid #666; background: transparent; color: #fff; border-radius: 99px; padding: 7px 16px; font: inherit; cursor: pointer; }
+.bdk-guard-btns button.bdk-guard-go { background: #fff; color: #111; border-color: #fff; }
+.bdk-guard-blur { filter: blur(8px); user-select: none; }

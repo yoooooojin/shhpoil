@@ -10,6 +10,7 @@ const DEFAULTS = {
   typeOffsets: {},
   overrides: {},
   compare: false,
+  guardVideo: true,
   batchSize: 20,
   timeoutSec: 10,
 };
@@ -51,6 +52,7 @@ chrome.storage.local.get(DEFAULTS, (s) => {
   $("serverUrl").value = s.serverUrl;
   $("ytApiKey").value = s.ytApiKey;
   $("compare").checked = s.compare;
+  $("guardVideo").checked = s.guardVideo;
   $("batchSize").value = s.batchSize;
   $("timeoutSec").value = s.timeoutSec;
   renderMode(s.mode);
@@ -69,6 +71,7 @@ $("serverUrl").addEventListener("change", (e) => {
 });
 $("batchSize").addEventListener("change", (e) => save({ batchSize: Math.max(1, Number(e.target.value) || 20) }));
 $("timeoutSec").addEventListener("change", (e) => save({ timeoutSec: Math.max(1, Number(e.target.value) || 10) }));
+$("guardVideo").addEventListener("change", (e) => save({ guardVideo: e.target.checked }));
 $("compare").addEventListener("change", (e) => save({ compare: e.target.checked }));
 $("ytApiKey").addEventListener("change", (e) => save({ ytApiKey: e.target.value.trim() }));
 document.querySelectorAll(".seg button").forEach((b) =>
@@ -82,8 +85,39 @@ $("resetLearning").addEventListener("click", () => {
   renderOffsets({}, {});
 });
 
+// ---------------------------------------------------------------- 잘못 판단한 글 모음
+const FB_COLS = [
+  "at", "user", "shown_as", "watched_episode", "show", "kind", "id", "text", "context", "posted_at",
+  "zoro_type", "p_spoiler", "written_after_episode", "matched_event", "matched_episode", "reasoned", "page",
+];
+function renderFb(log) {
+  const n = (log || []).length;
+  const notSp = (log || []).filter((r) => r.user === "스포 아님").length;
+  $("fbCount").textContent = n ? `${n}개 (스포 아님 ${notSp} · 스포였음 ${n - notSp})` : "아직 없음";
+}
+chrome.storage.local.get({ feedbackLog: [] }, (s) => renderFb(s.feedbackLog));
+$("fbDownload").addEventListener("click", () =>
+  chrome.storage.local.get({ feedbackLog: [] }, ({ feedbackLog }) => {
+    if (!feedbackLog.length) return;
+    const cell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const csv = [FB_COLS.join(","), ...feedbackLog.map((r) => FB_COLS.map((c) => cell(r[c])).join(","))].join("\r\n");
+    // 엑셀에서 한글 안 깨지게 BOM
+    const url = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `shhpoil_feedback_${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "")}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  })
+);
+$("fbClear").addEventListener("click", () => {
+  chrome.storage.local.set({ feedbackLog: [] });
+  renderFb([]);
+});
+
 // 팝업이 열려 있는 동안 학습 기록이 바뀌면 바로 표시
 chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "local" && changes.feedbackLog) renderFb(changes.feedbackLog.newValue);
   if (area !== "local" || !(changes.typeOffsets || changes.overrides)) return;
   chrome.storage.local.get(DEFAULTS, (s) => renderOffsets(s.typeOffsets, s.overrides));
 });

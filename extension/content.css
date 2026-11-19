@@ -12,7 +12,7 @@
 .bdk-blur.bdk-has-target .bdk-target { filter: blur(4px); opacity: .75; user-select: none; pointer-events: none; }
 
 .bdk-revealed:not(.bdk-has-target) > :not(.bdk-badge),
-.bdk-revealed.bdk-has-target .bdk-target { filter: none; opacity: 1; }
+.bdk-revealed.bdk-has-target .bdk-target { filter: none; opacity: 1; user-select: auto; pointer-events: auto; }
 
 .bdk-badge {
   display: flex; gap: 6px; align-items: center; flex-wrap: wrap;

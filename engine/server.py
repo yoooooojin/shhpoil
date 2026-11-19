@@ -55,6 +55,7 @@ JUDGE_PARALLEL = int(os.environ.get("JUDGE_PARALLEL", "20"))
 # 사건 후보: 댓글에 나온 출연자 이름·별명으로 먼저 추림.
 # 1: 이름이 나온 사건만 / 0: 기억장 전체 / fallback: 이름이 나오면 그 사건만, 아무도 안 나오면 전체
 PREFILTER = os.environ.get("PREFILTER", "1")
+P_SHIFT = float(os.environ.get("P_SHIFT", "0"))  # PREFILTER_TITLE=1이면 0.155 (dev2에서 같은 잘못 가림 기준 0.73 - 0.575)
 PREFILTER_TITLE = os.environ.get("PREFILTER_TITLE", "0")  # 0 | fallback | 1
 MAX_CANDIDATES = int(os.environ.get("MAX_CANDIDATES", "6"))
 # 단서 더 모으기: 애매한 글(확률이 이 범위)이면 에이전트가 어떤 단서를 더 볼지 골라 need_context로 요청
@@ -160,7 +161,7 @@ def judge_one(show, w, c, reason, sync_memory):
          + ptype["유출 주장"] * (later + none_p * (1.0 if (k is None or k >= w) else 0.5))
          + ptype["루머·추측"] * later
          + ptype["감상·출연자 이야기"] * (later_max if REACTION_MODE == "max" else later) * W_REACTION)
-    p = max(0.0, min(1.0, p))
+    p = max(0.0, min(1.0, p - P_SHIFT))  # 눈금 맞추기 (제목 후보를 쓰면 p가 전반적으로 올라가서 dev2 기준으로 내림)
     p_event, p_sheet_raw, p_sheet = p, None, None
     sheet_reasoned = False
     if SHEET:

@@ -214,7 +214,7 @@ python tools/collect_comments.py 영상주소_또는_ID 다른영상 --max 50
 
 ## API
 
-판단 엔진(`engine/`, `mock-server/`)은 아래 형식을 지킵니다. 바꿀 땐 팀원과 먼저 상의하세요.
+판단 엔진(`engine/`, `mock-server/`)은 아래 형식을 지킵니다.
 
 ### `POST /judge` — 판정
 
